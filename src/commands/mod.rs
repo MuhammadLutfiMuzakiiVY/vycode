@@ -29,6 +29,8 @@ pub enum SlashCommand {
     Docs(String),
     TgSetup(String, String),
     Tg(String),
+    DiscordSetup(String),
+    Dc(String),
     Unknown(String),
 }
 
@@ -140,6 +142,20 @@ impl SlashCommand {
                     Self::Unknown("tg requires a message: /tg <message_text>".to_string())
                 }
             }
+            "discord-setup" => {
+                if let Some(url) = arg {
+                    Self::DiscordSetup(url)
+                } else {
+                    Self::Unknown("discord-setup requires a Webhook URL: /discord-setup <url>".to_string())
+                }
+            }
+            "discord" | "dc" => {
+                if let Some(msg) = arg {
+                    Self::Dc(msg)
+                } else {
+                    Self::Unknown("dc/discord requires a message: /dc <message_text>".to_string())
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -156,7 +172,7 @@ impl CommandHandler {
     /// Get help text for all commands
     pub fn help_text() -> String {
         r#"╔══════════════════════════════════════════════════╗
-║              VyCode v2.1.0 Commands              ║
+║              VyCode v2.3.0 Commands              ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  /help          Show this help message           ║
@@ -171,6 +187,8 @@ impl CommandHandler {
 ║  /docs <url>    Read web docs + inject context   ║
 ║  /tg <msg>      Push message/update to Telegram  ║
 ║  /tg-setup <t><c>Configure remote Telegram Bot    ║
+║  /dc <msg>      Push notification to Discord     ║
+║  /discord-setup Configure Discord Webhook URL    ║
 ║  /memory        View Long-Term Project Memory    ║
 ║  /remember <f>  Store a fact in local memory     ║
 ║  /forget <id>   Wipe a fact by ID from memory    ║

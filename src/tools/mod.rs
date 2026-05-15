@@ -6,6 +6,7 @@ pub mod git;
 pub mod search;
 pub mod docs;
 pub mod telegram;
+pub mod discord;
 
 use anyhow::Result;
 
@@ -46,6 +47,11 @@ impl ToolRouter {
                 let chat_id = args.get(1).ok_or_else(|| anyhow::anyhow!("Chat ID required"))?;
                 let msg = args.get(2).ok_or_else(|| anyhow::anyhow!("Message required"))?;
                 telegram::send_message(token, chat_id, msg).await
+            }
+            "discord" => {
+                let url = args.get(0).ok_or_else(|| anyhow::anyhow!("Discord Webhook URL required"))?;
+                let msg = args.get(1).ok_or_else(|| anyhow::anyhow!("Message content required"))?;
+                discord::send_webhook(url, msg).await
             }
             _ => Err(anyhow::anyhow!("Unknown tool target")),
         }

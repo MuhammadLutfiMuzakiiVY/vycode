@@ -743,6 +743,36 @@ impl App {
                     self.add_system_message("⚠️ **Telegram is not configured.**\nRun `/tg-setup <bot_token> <chat_id>` first to establish connection rings!");
                 }
             }
+            SlashCommand::DiscordSetup(webhook_url) => {
+                self.config.discord_webhook = Some(webhook_url);
+                match self.config.save() {
+                    Ok(_) => {
+                        self.add_system_message("✅ **Discord Webhook Registered!**\nSaved and bound in configurations. Broadcast tests using `/dc Hello Discord Channel!`");
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Failed to save Discord configurations: {e}"));
+                    }
+                }
+            }
+            SlashCommand::Dc(message) => {
+                if let Some(webhook) = &self.config.discord_webhook {
+                    self.status_message = "Dispatching to Discord...".to_string();
+                    let url = webhook.clone();
+                    use crate::tools::ToolRouter;
+                    match ToolRouter::route_command("discord", &[&url, &message]).await {
+                        Ok(status) => {
+                            self.add_system_message(&status);
+                            self.status_message = "Discord sent".to_string();
+                        }
+                        Err(e) => {
+                            self.add_system_message(&format!("❌ Discord dispatch failed: {e}"));
+                            self.status_message = "Discord failure".to_string();
+                        }
+                    }
+                } else {
+                    self.add_system_message("⚠️ **Discord Webhook is not registered.**\nMount yours via: `/discord-setup <webhook_url>` to enable broadcasts!");
+                }
+            }
             SlashCommand::Fix(file) => {
                 let prompt = if let Some(f) = &file {
                     match cmd_handler::read_file(f) {

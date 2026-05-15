@@ -22,6 +22,7 @@ pub struct AppConfig {
     pub sessions_dir: Option<String>,
     pub telegram_token: Option<String>,    // Secure Encrypted Telegram Bot Token
     pub telegram_chat_id: Option<String>,  // Remote Telegram Receiver ID
+    pub discord_webhook: Option<String>,   // Discord Webhook URL Integration
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +55,7 @@ impl Default for AppConfig {
             sessions_dir: None,
             telegram_token: None,
             telegram_chat_id: None,
+            discord_webhook: None,
         }
     }
 }
