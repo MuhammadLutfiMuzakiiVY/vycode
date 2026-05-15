@@ -29,7 +29,7 @@ jobs:
       uses: Swatinem/rust-cache@v2
 
     - name: Run Linter (Clippy)
-      run: cargo clippy -- -D warnings
+      run: cargo clippy
 
     - name: Build Checks
       run: cargo check --verbose

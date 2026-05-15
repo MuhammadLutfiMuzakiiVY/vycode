@@ -456,9 +456,6 @@ impl App {
             let config = self.config.clone();
             let messages = api_messages;
 
-            // Clone what we need for the spawned task
-            let provider_name = provider.name().to_string();
-
             // We need to create a new provider for the spawned task
             let provider_type = self.provider_type.clone();
             let config_clone = config.clone();

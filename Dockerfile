@@ -1,5 +1,5 @@
 # --- Stage 1: Builder ---
-FROM rust:1.75-slim as builder
+FROM rust:stable-slim as builder
 WORKDIR /app
 
 # Install dependencies for compilation (including build-essential for C bindings needed by crates like syntect)
