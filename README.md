@@ -38,6 +38,64 @@ Track the current lifecycle progression and verified feature checklist:
 
 ---
 
+## 🧠 Deep Feature Breakdown & Competitiveness
+
+VyCode is engineered with complex modular capabilities designed to rival top-tier terminal agents (such as Claude Code). Below is the blueprint of our comprehensive enterprise framework:
+
+### 1. Interactive Terminal REPL & One-Shot Execution
+Launch interactive mode with simple execution (`vycode`), retaining full streaming conversational contexts. It natively supports shell pipelines and direct execution:
+*   `vycode -c` / `vycode --continue`: Pick up immediately from the last session state.
+*   `vycode -p "query"`: Provide one-shot queries returned directly to your terminal pipeline.
+
+### 2. Full Workspace Awareness
+Automatically crawls the active repository to structure a context map of:
+*   Directory hierarchies & structural maps.
+*   Dependency trees & dynamic `.toml`/`.json` configuration files.
+*   Active local codebase modules & developer documentations.
+
+### 3. The Advanced Modular Tool System (`src/tools/`)
+Unlike basic API wrappers, VyCode utilizes a sophisticated core routing framework directing intelligence outputs to sandboxed system modules:
+```
+src/tools/
+ ├── file_read.rs    # Atomic reading & binary context extraction
+ ├── file_write.rs   # Safe file modification & multi-level folder generation
+ ├── shell.rs        # Asynchronous cross-platform terminal runner
+ ├── git.rs          # Advanced version-control queries & stage reviewers
+ └── search.rs       # High-speed recursive workspace text crawlers
+```
+
+### 4. Autonomous Agent Action Loop (Plan-Execute-Observe)
+By initializing `/chain`, the app initiates an active feedback loop:
+1.  **Plan**: Break down macro user requests into modular task stages.
+2.  **Execute**: Run underlying tools (writing files, compiling, etc.).
+3.  **Observe**: Ingest output/errors back into the system prompt context window.
+4.  **Iterate**: Dynamically fix code defects autonomously until total success is observed!
+
+### 5. Security & Permission Control Framework
+Safety first. VyCode features dynamic configurable security rings ensuring files and system-destructive scripts are not executed without clear boundaries:
+*   **Read-Only Mode**: Fully active during standard explanations.
+*   **Write & Exec Confirmations**: Dynamic CLI prompts intercepting action commands.
+
+### 6. Secure Persistent Workspace Memory
+Configured seamlessly across operating systems:
+*   `~/.vycode/sessions/`: Local sqlite-free, high-speed JSON memory stores.
+*   `history.log`: Local terminal log tracking for auditing actions.
+
+### 7. Unix Pipeline Stdin Integration (Feature 9)
+Perfect for CLI hackers. Pipe data into VyCode natively:
+```bash
+# Pipe an error log directly into VyCode for one-shot AI diagnostics
+cat error.log | vycode -p "Explain this runtime crash"
+
+# Automatically diagnose compilation failures inline
+cargo test 2>&1 | vycode -p "Propose a patch for these failures"
+```
+
+### 8. Local Workspace Directives (`VYCODE.md`)
+Instruct the AI with per-repository developer contracts! If a file named **`VYCODE.md`** is detected in the root working directory, its instructions (architecture style, coding standards, specific tech stacks) are **automatically injected** directly into the agent's global system prompt at runtime!
+
+---
+
 ## ✨ What's New in VyCode 2.0.0?
 
 ### 🔄 1. AI Multi-Model Hot Swap

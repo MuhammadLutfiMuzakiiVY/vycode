@@ -437,9 +437,18 @@ impl App {
         self.messages.push(user_msg.clone());
         self.session_manager.add_message_to_current(user_msg);
 
-        // Build messages with system prompt
-        let system_prompt =
-            providers::build_system_prompt(self.project_context.get_summary());
+        // Build messages with system prompt and local instruction files (Feature 10: VYCODE.md)
+        let base_sys = providers::build_system_prompt(self.project_context.get_summary());
+        
+        let mut custom_instructions = String::new();
+        if let Ok(content) = std::fs::read_to_string("VYCODE.md") {
+            custom_instructions = format!(
+                "\n\n⚠️ IMPORTANT PROJECT-SPECIFIC DIRECTIVES (From VYCODE.md):\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n{}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                content
+            );
+        }
+
+        let system_prompt = format!("{}{}", base_sys, custom_instructions);
         let mut api_messages = vec![ChatMessage::system(&system_prompt)];
         api_messages.extend(self.messages.clone());
 
@@ -793,6 +802,58 @@ impl App {
         let msg = ChatMessage::assistant(content);
         self.messages.push(msg.clone());
         self.session_manager.add_message_to_current(msg);
+    }
+
+    /// Runs the application in non-interactive CLI mode (one-shot)
+    /// Highly useful for shell pipelines, one-shot prompt executions and CI integrations.
+    pub async fn run_one_shot(&mut self, query: &str) -> Result<()> {
+        // Ensure provider is present
+        if self.provider.is_none() {
+            return Err(anyhow::anyhow!("Provider not configured! Run 'vycode' once in interactive mode to set up API keys."));
+        }
+
+        // Send user query
+        self.send_message(query).await?;
+
+        use std::io::Write;
+        let mut stdout = std::io::stdout();
+
+        println!("\n🤖 [VyCode Streaming Engine v2.0] ━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        // Stream output natively to terminal stdout
+        let mut stream_completed = false;
+        if let Some(ref mut rx) = self.stream_rx {
+            while let Some(event) = rx.recv().await {
+                match event {
+                    StreamEvent::Chunk(chunk) => {
+                        print!("{}", chunk);
+                        let _ = stdout.flush();
+                    }
+                    StreamEvent::Done => {
+                        println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ✅");
+                        stream_completed = true;
+                        break;
+                    }
+                    StreamEvent::Error(err) => {
+                        eprintln!("\n⚠️ [Pipeline Error]: {}", err);
+                        if err.starts_with("Failed after") {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !stream_completed {
+            // Fallback loop just in case the stream hung but channels closed
+            println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ✅");
+        }
+        
+        // Clean up state and save session before exit
+        self.stream_rx = None;
+        self.is_streaming = false;
+        let _ = self.session_manager.save();
+        Ok(())
     }
 }
 

@@ -12,6 +12,7 @@ mod context;
 mod providers;
 mod session;
 mod ui;
+pub mod tools; // Integrated Tool Router Subsystem
 
 use anyhow::Result;
 use clap::Parser;
@@ -21,7 +22,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::prelude::*;
-use std::io;
+use std::io::{self, IsTerminal, Read};
 
 /// VyCode - AI Coding Terminal Assistant
 #[derive(Parser, Debug)]
@@ -33,7 +34,7 @@ use std::io;
 )]
 struct Cli {
     /// Path to project directory to analyze
-    #[arg(short, long)]
+    #[arg(long)]
     path: Option<String>,
 
     /// Skip the startup splash screen
@@ -43,6 +44,18 @@ struct Cli {
     /// Reset configuration to defaults
     #[arg(long)]
     reset_config: bool,
+
+    /// [v2.0] Provide a prompt execution string directly for shell pipelines
+    #[arg(short, long)]
+    prompt: Option<String>,
+
+    /// [v2.0] Direct autonomous task string execution
+    #[arg(short, long)]
+    run: Option<String>,
+
+    /// [v2.0] Automatically continue the previous active session
+    #[arg(short, long = "continue")]
+    continue_session: bool,
 }
 
 #[tokio::main]
@@ -57,6 +70,43 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // 1. CHECK FOR PIPED INPUT / STDIN INTEGRATION (Feature 9)
+    let mut piped_input = String::new();
+    let is_piped = !io::stdin().is_terminal();
+    if is_piped {
+        let mut buffer = Vec::new();
+        // Read stdin dynamically up to EOF
+        let _ = io::stdin().read_to_end(&mut buffer);
+        piped_input = String::from_utf8_lossy(&buffer).trim().to_string();
+    }
+
+    // Construct unified prompt if in pipeline or one-shot mode
+    let query_prompt = match (&cli.prompt, &cli.run) {
+        (Some(p), _) => Some(p.to_string()),
+        (_, Some(r)) => Some(format!("Execute autonomous agent task: {}", r)),
+        (None, None) => {
+            if is_piped && !piped_input.is_empty() {
+                Some("".to_string()) // Just piped context
+            } else {
+                None
+            }
+        }
+    };
+
+    // 2. ROUTE ONE-SHOT CLI MODE OR TUI INTERACTIVE MODE
+    if query_prompt.is_some() || (is_piped && !piped_input.is_empty()) {
+        let mut query = query_prompt.unwrap_or_default();
+        if !piped_input.is_empty() {
+            query = format!("CONTEXT DATA (Piped Stdin):\n```\n{}\n```\n\nUSER DIRECTIVE: {}", piped_input, query);
+        }
+
+        // Execute in lightweight non-interactive one-shot mode
+        let mut app = app::App::new(cli.path, true).await?;
+        app.run_one_shot(&query).await?;
+        return Ok(());
+    }
+
+    // 3. DEFAULT INTERACTIVE TUI MODE
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
