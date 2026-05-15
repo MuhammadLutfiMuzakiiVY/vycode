@@ -76,10 +76,14 @@ Safety first. VyCode features dynamic configurable security rings ensuring files
 *   **Read-Only Mode**: Fully active during standard explanations.
 *   **Write & Exec Confirmations**: Dynamic CLI prompts intercepting action commands.
 
-### 6. Secure Persistent Workspace Memory
-Configured seamlessly across operating systems:
-*   `~/.vycode/sessions/`: Local sqlite-free, high-speed JSON memory stores.
-*   `history.log`: Local terminal log tracking for auditing actions.
+### 6. Deep Persistent Project Memory Database Engine
+VyCode features an advanced, long-term knowledge acquisition system stored dynamically in the `.vycode/memory.json` layer of your project workspace.
+*   **Automatic Prompt Injection**: Remembered architectural facts, tech choices, and coding styles are **automatically embedded** into every single chat session's global context window.
+*   **Command Directives**:
+    *   `/remember <fact>`: Explicitly inject a truth into permanent memory (returns a unique 8-character Fact ID).
+    *   `/forget <fact_id>`: Purge specific memory assets permanently.
+    *   `/memory`: Render an ASCII report tracking total facts, categories, and timestamp allocations in the workspace.
+*   **JSON Backend**: Fast, schema-safe serialization using Serde & Uuid version-4 categorization.
 
 ### 7. Unix Pipeline Stdin Integration (Feature 9)
 Perfect for CLI hackers. Pipe data into VyCode natively:

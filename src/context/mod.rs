@@ -1,13 +1,17 @@
 // VyCode - Project Context Module
 #![allow(dead_code)]
+pub mod memory;
+
 use std::path::PathBuf;
 use walkdir::WalkDir;
+use self::memory::ProjectMemory;
 
 /// Manages project context for AI conversations
 pub struct ProjectContext {
     pub root_path: PathBuf,
     pub indexed_files: Vec<FileEntry>,
     pub context_summary: Option<String>,
+    pub memory: ProjectMemory, // Deep Persistent Memory
 }
 
 #[derive(Debug, Clone)]
@@ -23,10 +27,13 @@ impl ProjectContext {
             .map(PathBuf::from)
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
 
+        let memory = ProjectMemory::load();
+
         Self {
             root_path,
             indexed_files: Vec::new(),
             context_summary: None,
+            memory,
         }
     }
 

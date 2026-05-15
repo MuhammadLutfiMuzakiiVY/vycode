@@ -448,7 +448,10 @@ impl App {
             );
         }
 
-        let system_prompt = format!("{}{}", base_sys, custom_instructions);
+        // High-Performance Feature: Deep Persistent Project Memory Facts Injection
+        let memory_instructions = self.project_context.memory.get_prompt_injection();
+
+        let system_prompt = format!("{}{}{}", base_sys, custom_instructions, memory_instructions);
         let mut api_messages = vec![ChatMessage::system(&system_prompt)];
         api_messages.extend(self.messages.clone());
 
@@ -652,6 +655,35 @@ impl App {
                     Err(e) => {
                         self.add_system_message(&format!("❌ Git operation failed: {e}"));
                         self.status_message = "Git failure".to_string();
+                    }
+                }
+            }
+            SlashCommand::Memory => {
+                let stats = self.project_context.memory.display_stats();
+                self.add_system_message(&stats);
+            }
+            SlashCommand::Remember(fact) => {
+                match self.project_context.memory.remember(&fact, None) {
+                    Ok(id) => {
+                        self.add_system_message(&format!(
+                            "🧠 **Knowledge Stored Successfully!**\nFact registered in local Project Memory under ID: `{id}`.\nThis fact will now be injected into all future system prompts in this workspace!"
+                        ));
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Failed to save memory fact: {e}"));
+                    }
+                }
+            }
+            SlashCommand::Forget(id) => {
+                match self.project_context.memory.forget(&id) {
+                    Ok(true) => {
+                        self.add_system_message(&format!("🗑️ Memory Fact `{id}` wiped successfully. It is now forgotten."));
+                    }
+                    Ok(false) => {
+                        self.add_system_message(&format!("⚠️ No memory fact with ID `{id}` was found in this workspace."));
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Failed to purge memory: {e}"));
                     }
                 }
             }

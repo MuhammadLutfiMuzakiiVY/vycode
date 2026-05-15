@@ -23,6 +23,9 @@ pub enum SlashCommand {
     Heal(Option<String>),
     Chain(String),
     Git(String),
+    Memory,
+    Remember(String),
+    Forget(String),
     Unknown(String),
 }
 
@@ -93,6 +96,21 @@ impl SlashCommand {
                     Self::Git("status".to_string()) // default to status if no args
                 }
             }
+            "memory" => Self::Memory,
+            "remember" => {
+                if let Some(fact) = arg {
+                    Self::Remember(fact)
+                } else {
+                    Self::Unknown("remember requires a fact: /remember <fact_text>".to_string())
+                }
+            }
+            "forget" => {
+                if let Some(id) = arg {
+                    Self::Forget(id)
+                } else {
+                    Self::Unknown("forget requires a fact ID: /forget <fact_id>".to_string())
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -109,7 +127,7 @@ impl CommandHandler {
     /// Get help text for all commands
     pub fn help_text() -> String {
         r#"╔══════════════════════════════════════════════════╗
-║              VyCode v2.0.0 Commands              ║
+║              VyCode v2.1.0 Commands              ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  /help          Show this help message           ║
@@ -121,6 +139,9 @@ impl CommandHandler {
 ║  /heal [file]   Self-healing active compiler     ║
 ║  /chain <task>  Autonomous Agentic loop execution║
 ║  /git <args>    Integrated Git Control Center    ║
+║  /memory        View Long-Term Project Memory    ║
+║  /remember <f>  Store a fact in local memory     ║
+║  /forget <id>   Wipe a fact by ID from memory    ║
 ║  /fix [file]    Auto-fix code issues             ║
 ║  /explain [file] Explain code structure          ║
 ║  /read <file>   Read a file                      ║
