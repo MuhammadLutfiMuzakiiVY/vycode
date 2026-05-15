@@ -22,6 +22,7 @@ pub enum SlashCommand {
     Graph,
     Heal(Option<String>),
     Chain(String),
+    Git(String),
     Unknown(String),
 }
 
@@ -85,6 +86,13 @@ impl SlashCommand {
                     Self::Unknown("chain requires a multi-step task description".to_string())
                 }
             }
+            "git" | "g" => {
+                if let Some(git_args) = arg {
+                    Self::Git(git_args)
+                } else {
+                    Self::Git("status".to_string()) // default to status if no args
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -112,6 +120,7 @@ impl CommandHandler {
 ║  /graph         Visual ASCII Dependency Tree     ║
 ║  /heal [file]   Self-healing active compiler     ║
 ║  /chain <task>  Autonomous Agentic loop execution║
+║  /git <args>    Integrated Git Control Center    ║
 ║  /fix [file]    Auto-fix code issues             ║
 ║  /explain [file] Explain code structure          ║
 ║  /read <file>   Read a file                      ║

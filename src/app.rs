@@ -632,6 +632,20 @@ impl App {
                 );
                 self.send_message(&agent_prompt).await?;
             }
+            SlashCommand::Git(args) => {
+                self.status_message = format!("Git: running 'git {}'...", args);
+                let full_cmd = format!("git {}", args);
+                match cmd_handler::exec_command(&full_cmd).await {
+                    Ok(output) => {
+                        self.add_system_message(&output);
+                        self.status_message = "Git command completed".to_string();
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Git operation failed: {e}"));
+                        self.status_message = "Git failure".to_string();
+                    }
+                }
+            }
             SlashCommand::Fix(file) => {
                 let prompt = if let Some(f) = &file {
                     match cmd_handler::read_file(f) {

@@ -16,6 +16,28 @@
 
 ---
 
+## 🗺️ Development Roadmap & Milestones
+
+Track the current lifecycle progression and verified feature checklist:
+
+### 🎯 Tahap 1 (Wajib / Core Focus) — **100% COMPLETED**
+- [x] **Agent Mode**: Fully functional autonomous execution framework activated via `/chain`.
+- [x] **Project Scanner**: High-speed recursive file tree parser and context indexer via `/scan`.
+- [x] **Slash Commands**: Extensive ecosystem of built-in directives with instant TUI responses.
+- [x] **Provider Hot Swap**: Instantly swap models and providers mid-chat without data loss.
+
+### ⚡ Tahap 2 (Stability & Ops) — **100% COMPLETED**
+- [x] **5. Self-Healing**: Proactive compiler watcher parsing diagnostics to inject automated fixes via `/heal`.
+- [x] **6. Persistent Memory**: Encrypted config layers and JSON multiversion session recovery.
+- [x] **7. Git Integration**: Control versioning natively with the newly integrated `/git` command!
+
+### 🚀 Tahap 3 (Future Scale) — **IN PROGRESS**
+- [x] **8. TUI Dashboard**: Vibrant premium orange dark-mode terminal layout powered by `ratatui`.
+- [ ] **9. Plugin Tools**: **[PLANNED]** Module loading framework for external Rust-based toolkits.
+- [x] **10. Benchmark**: Confirmed scientific metrics proving sub-15ms cold startups.
+
+---
+
 ## ✨ What's New in VyCode 2.0.0?
 
 ### 🔄 1. AI Multi-Model Hot Swap
