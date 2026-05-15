@@ -5,6 +5,7 @@ pub mod shell;
 pub mod git;
 pub mod search;
 pub mod docs;
+pub mod telegram;
 
 use anyhow::Result;
 
@@ -39,6 +40,12 @@ impl ToolRouter {
             "docs" => {
                 let url = args.get(0).ok_or_else(|| anyhow::anyhow!("No documentation URL provided"))?;
                 docs::fetch_documentation(url).await
+            }
+            "telegram" => {
+                let token = args.get(0).ok_or_else(|| anyhow::anyhow!("Telegram Token required"))?;
+                let chat_id = args.get(1).ok_or_else(|| anyhow::anyhow!("Chat ID required"))?;
+                let msg = args.get(2).ok_or_else(|| anyhow::anyhow!("Message required"))?;
+                telegram::send_message(token, chat_id, msg).await
             }
             _ => Err(anyhow::anyhow!("Unknown tool target")),
         }

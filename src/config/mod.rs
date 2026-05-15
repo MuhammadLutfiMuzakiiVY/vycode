@@ -20,6 +20,8 @@ pub struct AppConfig {
     pub max_context_tokens: usize,
     pub auto_scan: bool,
     pub sessions_dir: Option<String>,
+    pub telegram_token: Option<String>,    // Secure Encrypted Telegram Bot Token
+    pub telegram_chat_id: Option<String>,  // Remote Telegram Receiver ID
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +52,8 @@ impl Default for AppConfig {
             max_context_tokens: 8192,
             auto_scan: true,
             sessions_dir: None,
+            telegram_token: None,
+            telegram_chat_id: None,
         }
     }
 }

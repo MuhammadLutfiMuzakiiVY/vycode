@@ -104,6 +104,15 @@ Read official online API manuals directly into active system context to keep the
 *   **Smart Extraction**: Natively strips scripts, styles, and assets to extract clean text context.
 *   **Auto-Summary Pipeline**: Immediately triggers an autonomous chat loop where the AI digests the newly imported docs and prints a concise, technical 3-to-5 bullet API summary to the screen instantly!
 
+### 10. Telegram Remote Messaging Bridge (`/tg`)
+Operate VyCode remotely and receive live push notifications! VyCode now features a direct connection link allowing users to broadcast AI generated codes or compilation statuses to their Telegram app!
+*   **Broadcast Mode**:
+    ```bash
+    # Push any message or build status directly to your phone
+    /tg Hey Lutfi, the autonomous agent has completed local cargo tests!
+    ```
+*   **Quick Setup**: Run `/tg-setup <token> <chat_id>` to securely connect your personal Telegram Bot and securely encrypt credentials locally!
+
 ---
 
 ## ✨ What's New in VyCode 2.0.0?

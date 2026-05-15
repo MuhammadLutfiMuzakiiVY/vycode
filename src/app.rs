@@ -710,6 +710,39 @@ impl App {
                     }
                 }
             }
+            SlashCommand::TgSetup(token, chat_id) => {
+                self.config.telegram_token = Some(token);
+                self.config.telegram_chat_id = Some(chat_id);
+                match self.config.save() {
+                    Ok(_) => {
+                        self.add_system_message("✅ **Telegram Bot Configured!**\nCredentials saved and secured in config layer. Try sending a test via: `/tg Hello from VyCode TUI!`");
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Failed to save Telegram configs: {e}"));
+                    }
+                }
+            }
+            SlashCommand::Tg(message) => {
+                let token = self.config.telegram_token.clone();
+                let chat_id = self.config.telegram_chat_id.clone();
+                
+                if let (Some(tok), Some(cid)) = (token, chat_id) {
+                    self.status_message = "Broadcasting to Telegram...".to_string();
+                    use crate::tools::ToolRouter;
+                    match ToolRouter::route_command("telegram", &[&tok, &cid, &message]).await {
+                        Ok(status) => {
+                            self.add_system_message(&status);
+                            self.status_message = "Telegram sent".to_string();
+                        }
+                        Err(e) => {
+                            self.add_system_message(&format!("❌ Telegram broadcast failed: {e}"));
+                            self.status_message = "Broadcast failure".to_string();
+                        }
+                    }
+                } else {
+                    self.add_system_message("⚠️ **Telegram is not configured.**\nRun `/tg-setup <bot_token> <chat_id>` first to establish connection rings!");
+                }
+            }
             SlashCommand::Fix(file) => {
                 let prompt = if let Some(f) = &file {
                     match cmd_handler::read_file(f) {

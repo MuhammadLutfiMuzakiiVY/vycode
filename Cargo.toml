@@ -1,6 +1,6 @@
 [package]
 name = "vycode"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 authors = ["Muhammad Lutfi Muzaki"]
 description = "VyCode - AI Coding Terminal Assistant"

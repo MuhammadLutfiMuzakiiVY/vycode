@@ -27,6 +27,8 @@ pub enum SlashCommand {
     Remember(String),
     Forget(String),
     Docs(String),
+    TgSetup(String, String),
+    Tg(String),
     Unknown(String),
 }
 
@@ -119,6 +121,25 @@ impl SlashCommand {
                     Self::Unknown("docs requires a URL: /docs <url>".to_string())
                 }
             }
+            "tg-setup" => {
+                if let Some(args) = arg {
+                    let sub_parts: Vec<&str> = args.splitn(2, ' ').collect();
+                    if sub_parts.len() == 2 {
+                        Self::TgSetup(sub_parts[0].to_string(), sub_parts[1].to_string())
+                    } else {
+                        Self::Unknown("tg-setup requires: /tg-setup <token> <chat_id>".to_string())
+                    }
+                } else {
+                    Self::Unknown("tg-setup requires arguments".to_string())
+                }
+            }
+            "tg" => {
+                if let Some(msg) = arg {
+                    Self::Tg(msg)
+                } else {
+                    Self::Unknown("tg requires a message: /tg <message_text>".to_string())
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -148,6 +169,8 @@ impl CommandHandler {
 ║  /chain <task>  Autonomous Agentic loop execution║
 ║  /git <args>    Integrated Git Control Center    ║
 ║  /docs <url>    Read web docs + inject context   ║
+║  /tg <msg>      Push message/update to Telegram  ║
+║  /tg-setup <t><c>Configure remote Telegram Bot    ║
 ║  /memory        View Long-Term Project Memory    ║
 ║  /remember <f>  Store a fact in local memory     ║
 ║  /forget <id>   Wipe a fact by ID from memory    ║
