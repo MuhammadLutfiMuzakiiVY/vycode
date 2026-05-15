@@ -26,6 +26,7 @@ pub enum SlashCommand {
     Memory,
     Remember(String),
     Forget(String),
+    Docs(String),
     Unknown(String),
 }
 
@@ -111,6 +112,13 @@ impl SlashCommand {
                     Self::Unknown("forget requires a fact ID: /forget <fact_id>".to_string())
                 }
             }
+            "docs" | "doc" => {
+                if let Some(url) = arg {
+                    Self::Docs(url)
+                } else {
+                    Self::Unknown("docs requires a URL: /docs <url>".to_string())
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -139,6 +147,7 @@ impl CommandHandler {
 ║  /heal [file]   Self-healing active compiler     ║
 ║  /chain <task>  Autonomous Agentic loop execution║
 ║  /git <args>    Integrated Git Control Center    ║
+║  /docs <url>    Read web docs + inject context   ║
 ║  /memory        View Long-Term Project Memory    ║
 ║  /remember <f>  Store a fact in local memory     ║
 ║  /forget <id>   Wipe a fact by ID from memory    ║

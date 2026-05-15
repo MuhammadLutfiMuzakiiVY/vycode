@@ -4,6 +4,7 @@ pub mod file_write;
 pub mod shell;
 pub mod git;
 pub mod search;
+pub mod docs;
 
 use anyhow::Result;
 
@@ -34,6 +35,10 @@ impl ToolRouter {
             "search" => {
                 let query = args.get(0).ok_or_else(|| anyhow::anyhow!("No query string provided"))?;
                 search::execute(query)
+            }
+            "docs" => {
+                let url = args.get(0).ok_or_else(|| anyhow::anyhow!("No documentation URL provided"))?;
+                docs::fetch_documentation(url).await
             }
             _ => Err(anyhow::anyhow!("Unknown tool target")),
         }

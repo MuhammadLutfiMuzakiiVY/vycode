@@ -95,8 +95,14 @@ cat error.log | vycode -p "Explain this runtime crash"
 cargo test 2>&1 | vycode -p "Propose a patch for these failures"
 ```
 
-### 8. Local Workspace Directives (`VYCODE.md`)
-Instruct the AI with per-repository developer contracts! If a file named **`VYCODE.md`** is detected in the root working directory, its instructions (architecture style, coding standards, specific tech stacks) are **automatically injected** directly into the agent's global system prompt at runtime!
+### 9. Live Online Documentation Scraper (`/docs`)
+Read official online API manuals directly into active system context to keep the AI absolutely aligned with real-world frameworks:
+```bash
+# Scrapes the Tokamak/Axum/Tokio docs directly and injects into context
+/docs https://docs.rs/tokio/latest/tokio/
+```
+*   **Smart Extraction**: Natively strips scripts, styles, and assets to extract clean text context.
+*   **Auto-Summary Pipeline**: Immediately triggers an autonomous chat loop where the AI digests the newly imported docs and prints a concise, technical 3-to-5 bullet API summary to the screen instantly!
 
 ---
 

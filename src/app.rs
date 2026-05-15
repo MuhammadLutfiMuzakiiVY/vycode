@@ -687,6 +687,29 @@ impl App {
                     }
                 }
             }
+            SlashCommand::Docs(url) => {
+                self.status_message = format!("Downloading docs from {}...", url);
+                self.add_system_message(&format!("🌐 **Retrieving Documentation Context** from `{url}`..."));
+                
+                use crate::tools::ToolRouter;
+                match ToolRouter::route_command("docs", &[&url]).await {
+                    Ok(content) => {
+                        // Inject raw text to workspace chat context
+                        self.add_system_message(&content);
+                        
+                        // Automatically prompt the AI to parse the newly ingested documentation
+                        let feed_prompt = format!(
+                            "CRITICAL DOCS EVENT: A direct documentation manual was downloaded and provided below:\n\n{}\n\nINSTRUCTION: Act as the technical expert for this documentation. Confirm you have fully read it and provide a concise 3-to-5 bullet-point technical summary for the developer, detailing the API methods or design patterns demonstrated above.",
+                            content
+                        );
+                        self.send_message(&feed_prompt).await?;
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Documentation fetch failed: {e}"));
+                        self.status_message = "Docs fetch failed".to_string();
+                    }
+                }
+            }
             SlashCommand::Fix(file) => {
                 let prompt = if let Some(f) = &file {
                     match cmd_handler::read_file(f) {
