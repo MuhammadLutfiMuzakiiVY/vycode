@@ -15,6 +15,7 @@ pub mod ssh;
 pub mod hass;
 pub mod db;
 pub mod mcp;
+pub mod runner;
 
 use anyhow::Result;
 

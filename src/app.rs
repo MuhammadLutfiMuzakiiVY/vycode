@@ -57,6 +57,7 @@ pub struct App {
     pub agent_chain_active: bool,
     pub agent_chain_steps: usize,
     pub pending_agent_action: Option<String>,
+    pub process_manager: crate::tools::runner::ProcessManager,
 }
 
 impl App {
@@ -126,6 +127,7 @@ impl App {
             agent_chain_active: false,
             agent_chain_steps: 0,
             pending_agent_action: None,
+            process_manager: crate::tools::runner::ProcessManager::new(),
         })
     }
 
@@ -210,6 +212,33 @@ impl App {
                                 }
                             } else {
                                 "❌ SCHEMA PARSE ERROR: Invalid syntax. Use `[WRITE: <filepath>|<content>]`. Notice the `|` separator!".to_string()
+                            }
+                        } else if action.starts_with("spawn:") {
+                            let rest = &action[6..];
+                            if let Some(pipe_idx) = rest.find('|') {
+                                let label = rest[..pipe_idx].trim();
+                                let cmd = &rest[pipe_idx + 1..];
+                                self.add_system_message(&format!("⚡🌌 **[Auto-Exec Phase {}]:** Spawning background runner `{}`...", self.agent_chain_steps, label));
+                                match self.process_manager.spawn_background(label, cmd).await {
+                                    Ok(key) => format!("✅ DAEMON RUNNING IN BACKGROUND.\n🔑 Unique Handle: `{}`\n\n💡 **Instruction:** The process is now running independently. Check its rolling output anytime using: `[STATUS: {}]`", key, key),
+                                    Err(e) => format!("❌ BACKGROUND SPAWN ERROR: {}", e),
+                                }
+                            } else {
+                                "❌ SCHEMA PARSE ERROR: Invalid background spawning syntax. Must separate label and script with absolute pipe: `[SPAWN: label|command]`".to_string()
+                            }
+                        } else if action.starts_with("status:") {
+                            let key = &action[7..];
+                            self.add_system_message(&format!("⚡📊 **[Auto-Exec Phase {}]:** Inspecting daemon `{}`...", self.agent_chain_steps, key));
+                            match self.process_manager.get_status(key) {
+                                Ok(report) => report,
+                                Err(e) => format!("❌ PROCESS MONITOR REPORT ERROR: {}", e),
+                            }
+                        } else if action.starts_with("kill:") {
+                            let key = &action[5..];
+                            self.add_system_message(&format!("⚡🛑 **[Auto-Exec Phase {}]:** Force terminating daemon `{}`...", self.agent_chain_steps, key));
+                            match self.process_manager.terminate(key).await {
+                                Ok(msg) => msg,
+                                Err(e) => format!("❌ PROCESS TERMINATION FAILED: {}", e),
                             }
                         } else {
                             "❌ UNSUPPORTED COMMAND PROTOCOL".to_string()
@@ -608,6 +637,21 @@ impl App {
                             if let Some(end) = sub.find(']') {
                                 self.pending_agent_action = Some(format!("write:{}", &sub[..end].trim()));
                             }
+                        } else if let Some(start) = text.find("[SPAWN: ") {
+                            let sub = &text[start + 8..];
+                            if let Some(end) = sub.find(']') {
+                                self.pending_agent_action = Some(format!("spawn:{}", &sub[..end].trim()));
+                            }
+                        } else if let Some(start) = text.find("[STATUS: ") {
+                            let sub = &text[start + 9..];
+                            if let Some(end) = sub.find(']') {
+                                self.pending_agent_action = Some(format!("status:{}", &sub[..end].trim()));
+                            }
+                        } else if let Some(start) = text.find("[KILL: ") {
+                            let sub = &text[start + 7..];
+                            if let Some(end) = sub.find(']') {
+                                self.pending_agent_action = Some(format!("kill:{}", &sub[..end].trim()));
+                            }
                         } else if let Some(start) = text.find("[DONE: ") {
                             let sub = &text[start + 7..];
                             if let Some(end) = sub.find(']') {
@@ -618,7 +662,7 @@ impl App {
                             self.agent_chain_steps = 0;
                             self.pending_agent_action = None;
                         } else {
-                            // Auto-safety: if AI stops returning EXEC or DONE tags, automatically disengage
+                            // Auto-safety: if AI stops returning action tags, automatically disengage
                             self.agent_chain_active = false;
                             self.add_system_message("ℹ️ *Sovereign Loop naturally dissolved: No further active schema commands provided.*");
                         }
@@ -745,15 +789,21 @@ impl App {
                 self.pending_agent_action = None;
 
                 let agent_prompt = format!(
-                    "CRITICAL DIRECTIVE: YOU ARE NOW OPERATING AS A FULLY AUTONOMOUS SOVEREIGN AGENT (v3.0).\n\
+                    "CRITICAL DIRECTIVE: YOU ARE NOW OPERATING AS A FULLY AUTONOMOUS SOVEREIGN AGENT (v3.1).\n\
                     Objective: \"{}\"\n\n\
-                    IMPORTANT: The developer platform has granted you DIRECT NATIVE EXECUTION PRIVILEGES.\n\
-                    Whenever you output an execution command, the VyCode Engine will IMMEDIATELY execute it natively and inject the terminal stdout/stderr directly back into your prompt automatically!\n\n\
-                    🔥 NATIVE COMMAND SCHEMAS:\n\
-                    - `[EXEC: <shell command>]` -> Executes shell command, installs packages, runs compilers/scripts.\n\
-                    - `[WRITE: <filepath>|<filecontent>]` -> Safely writes or patches code files natively.\n\
-                    - `[DONE: <result>]` -> Call ONLY when the task objective is 100% verified and complete.\n\n\
-                    Analyze the objective, formulate the execution steps, and initiate STEP 1 immediately by outputting the relevant schema command! (Limit 1 action per turn).",
+                    IMPORTANT: The developer workstation has granted you DIRECT SYSTEM NATIVE EXECUTION PRIVILEGES.\n\
+                    Whenever you output a command trigger, the VyCode Subsystem will IMMEDIATELY execute it asynchronously and inject the outputs (stdout/stderr) automatically back into your next prompt!\n\n\
+                    🚀 NATIVE EXECUTION ENGINE CAPABILITIES:\n\
+                    1. 💎 CORE SYNC TOOLS:\n\
+                       - `[EXEC: <shell command>]` -> Direct blocking execution (e.g., compiling code, creating directories, running short test-suites).\n\
+                       - `[WRITE: <filepath>|<content>]` -> Fast direct file writing/patching (Separated with absolute pipe `|`).\n\
+                    2. 🌌 BACKGROUND DAEMONS & PACKAGES:\n\
+                       - `[SPAWN: <label>|<command>]` -> Launches LONG-RUNNING processes (e.g. `cargo run`, `npm run dev`, API servers) in the background! Returns a Unique Process Handle.\n\
+                       - `[STATUS: <handle>]` -> Inspects active daemons, returning process state and capturing rolling activity LOG BUFFERS (stdout/stderr).\n\
+                       - `[KILL: <handle>]` -> Forcefully kills a running background runner.\n\n\
+                    3. 🏁 COMPLETION TRIGGER:\n\
+                       - `[DONE: <result>]` -> Call ONLY when objective is 100% developed, compiled, and verified successfully.\n\n\
+                    💡 ADVISORY: Feel free to spawn dev-servers, review their logs via STATUS to ensure they run clean, write full controller logics, install required libraries, and act autonomously. Limit to ONE trigger per turn. Initiate STEP 1 now:",
                     task
                 );
                 self.send_message(&agent_prompt).await?;

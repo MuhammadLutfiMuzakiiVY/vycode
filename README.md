@@ -2,17 +2,17 @@
   <!-- Project Logo -->
   <img src="docs/vycode-logo.png" alt="VyCode Logo" width="250" />
 
-  # VyCode v3.0.0 — The Sovereign Autonomous AI Terminal Agent
+  # VyCode v3.1.0 — The Sovereign Autonomous AI Terminal Agent
   
   **Created by [Muhammad Lutfi Muzaki](https://github.com/MuhammadLutfiMuzakiiVY)**
 
   [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Status](https://img.shields.io/badge/Status-Production--Ready-success.svg)]()
-  [![Version](https://img.shields.io/badge/Release-v3.0.0-blue.svg)]()
+  [![Version](https://img.shields.io/badge/Release-v3.1.0-blue.svg)]()
 </div>
 
-> **VyCode 3.0** is a hyper-lightweight, blazingly fast sovereign autonomous terminal AI agent engineered entirely in Rust. It features **Recursive Native EXEC Tools Auto-Execution**, a high-performance **SQLite3 Relational & FTS5 Semantic Memory Engine**, and advanced multi-protocol enterprise infrastructures.
+> **VyCode 3.1** is a hyper-lightweight, blazingly fast sovereign autonomous terminal AI agent engineered entirely in Rust. It features a **Stateful Parallel Background Process Pool** allowing the AI to launch background daemons, packages (npm, cargo, pip), and monitor rolling logs asynchronously!
 
 ---
 
@@ -144,9 +144,18 @@ VyCode v3.0 steps into full sovereignty, providing true hands-on execution and a
     *   **Cross-Session History**: Autologs user/assistant interaction layers natively to SQLite for infinite historic resumes.
     *   **Workspace Summary Cache**: Caches high-speed hashes and summaries of codeblocks permanently.
 
+### 13. 🌌 Stateful Background Process Pools & Daemon Monitor
+Version 3.1 unlocks true non-blocking background system orchestration:
+*   🛸 **Parallel Execution**: Use `[SPAWN: label|cmd]` to launch daemons (e.g. `cargo watch`, `npm run dev`, Python server) that run concurrently without blocking the conversation!
+*   📊 **Log Harvesting**: Inspect rolling outputs anytime using `[STATUS: handle]`. Retreives last 30 lines of live stdout/stderr buffers automatically!
+*   🛑 **Auto-Cleanups**: Easily terminate orphaned background tasks using `[KILL: handle]`.
+
 ---
 
-## ✨ What's New in VyCode 2.0.0?
+## ✨ What's New in VyCode v3.1.0?
+
+### 🌌 1. Background Execution & Daemon Runners
+Launch development servers natively! The system prompt guides the agent to spawn your server, verify its boot output through status logs, and ensure zero errors—completely unattended!
 
 ### 🔄 1. AI Multi-Model Hot Swap
 Switch intelligence levels instantly! Change models mid-conversation via `/model <name>` without restarting the app or losing chat context. The internal provider trait automatically reconfigures the streaming connection on the fly.
