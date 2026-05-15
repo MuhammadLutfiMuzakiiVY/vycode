@@ -452,7 +452,7 @@ impl App {
         let (tx, rx) = mpsc::unbounded_channel();
         self.stream_rx = Some(rx);
 
-        if let Some(provider) = &self.provider {
+        if let Some(_provider) = &self.provider {
             let config = self.config.clone();
             let messages = api_messages;
 
@@ -551,11 +551,16 @@ impl App {
                 if let Some(model) = name {
                     self.config.set_model(&model);
                     self.config.save()?;
-                    self.status_message = format!("Model: {model}");
-                    self.add_system_message(&format!("✅ Model changed to: {model}"));
+                    // AI MULTI-MODEL HOT SWAP: Recreate active provider immediately without restart!
+                    self.provider = Some(providers::create_provider(
+                        &self.provider_type,
+                        &self.config,
+                    ));
+                    self.status_message = format!("Model hot-swapped to: {model}");
+                    self.add_system_message(&format!("🔄 [HOT SWAP] Provider re-initialized. Active model changed to: **{model}**"));
                 } else {
                     let current = self.config.model.as_deref().unwrap_or("N/A");
-                    self.add_system_message(&format!("Current model: {current}"));
+                    self.add_system_message(&format!("Current active model: {current}"));
                 }
             }
             SlashCommand::Provider => {
@@ -580,6 +585,52 @@ impl App {
                         self.add_system_message(&format!("❌ Scan failed: {e}"));
                     }
                 }
+            }
+            SlashCommand::Graph => {
+                self.status_message = "Building dependency graph...".to_string();
+                match cmd_handler::visual_graph() {
+                    Ok(graph) => {
+                        self.add_system_message(&graph);
+                        self.status_message = "Visual graph loaded".to_string();
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Graph generation failed: {e}"));
+                    }
+                }
+            }
+            SlashCommand::Heal(_file) => {
+                self.status_message = "Checking compiler health...".to_string();
+                match cmd_handler::get_compiler_errors().await {
+                    Ok(report) => {
+                        self.add_system_message(&report);
+                        if report.contains("Compiler Error Detected") {
+                            let prompt = format!(
+                                "{} \n\nINSTRUCTION: Parse the above compiler error diagnostics and the current context. Provide the solution code directly. Return ONLY the corrected block or file contents in Markdown.",
+                                report
+                            );
+                            self.send_message(&prompt).await?;
+                        } else {
+                            self.status_message = "System Healthy".to_string();
+                        }
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Self-healing scan failed: {e}"));
+                    }
+                }
+            }
+            SlashCommand::Chain(task) => {
+                self.status_message = "Starting autonomous agent chain...".to_string();
+                self.add_system_message(&format!("🤖 **Initializing Autonomous Task Chain:** \"{task}\""));
+                let agent_prompt = format!(
+                    "CRITICAL DIRECTIVE: You are operating in AUTONOMOUS TASK CHAINING MODE (v2.0).\n\
+                    Your task: \"{}\"\n\n\
+                    You have direct workspace execution privileges. Break down the goal into iterative steps.\n\
+                    For each step, write code or instructions, and you can specify command execution using: \n\
+                    `[EXEC: <shell command>]` or `[WRITE: <path> <contents>]` to instruct the developer.\n\
+                    Start step 1 now:",
+                    task
+                );
+                self.send_message(&agent_prompt).await?;
             }
             SlashCommand::Fix(file) => {
                 let prompt = if let Some(f) = &file {

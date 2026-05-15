@@ -19,6 +19,9 @@ pub enum SlashCommand {
     Session(Option<String>),
     Export,
     Theme(Option<String>),
+    Graph,
+    Heal(Option<String>),
+    Chain(String),
     Unknown(String),
 }
 
@@ -73,6 +76,15 @@ impl SlashCommand {
             "session" => Self::Session(arg),
             "export" => Self::Export,
             "theme" => Self::Theme(arg),
+            "graph" | "tree" => Self::Graph,
+            "heal" | "watch" => Self::Heal(arg),
+            "chain" => {
+                if let Some(task) = arg {
+                    Self::Chain(task)
+                } else {
+                    Self::Unknown("chain requires a multi-step task description".to_string())
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -89,28 +101,31 @@ impl CommandHandler {
     /// Get help text for all commands
     pub fn help_text() -> String {
         r#"╔══════════════════════════════════════════════════╗
-║                VyCode Commands                   ║
+║              VyCode v2.0.0 Commands              ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  /help          Show this help message           ║
-║  /model [name]  Change or show current model     ║
+║  /model [name]  [HOT SWAP] Change active model   ║
 ║  /provider      Switch AI provider               ║
 ║  /apikey        Update API key                   ║
-║  /scan          Scan project files               ║
+║  /scan          Scan project context             ║
+║  /graph         Visual ASCII Dependency Tree     ║
+║  /heal [file]   Self-healing active compiler     ║
+║  /chain <task>  Autonomous Agentic loop execution║
 ║  /fix [file]    Auto-fix code issues             ║
-║  /explain [file] Explain code                    ║
+║  /explain [file] Explain code structure          ║
 ║  /read <file>   Read a file                      ║
 ║  /write <f> <c> Write content to file            ║
 ║  /exec <cmd>    Execute shell command            ║
 ║  /session [name] Switch/create session           ║
-║  /export        Export current session           ║
-║  /clear         Clear chat history               ║
+║  /export        Export session to Markdown       ║
+║  /clear         Clear screen history             ║
 ║  /exit          Exit VyCode                      ║
 ║                                                  ║
 ║  Shortcuts:                                      ║
-║  Ctrl+C         Cancel current action            ║
-║  Ctrl+L         Clear screen                     ║
-║  ↑/↓            Scroll messages                  ║
+║  Ctrl+C         Cancel streaming or exit         ║
+║  Ctrl+L         Clear screen console             ║
+║  ↑/↓            Scroll history viewport          ║
 ║                                                  ║
 ╚══════════════════════════════════════════════════╝"#
             .to_string()

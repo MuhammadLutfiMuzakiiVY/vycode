@@ -164,6 +164,106 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
+/// Generate a visual ASCII dependency tree of the project
+pub fn visual_graph() -> Result<String> {
+    let base = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let mut output = format!("📊 VyCode Dependency Tree Graph: {}\n", base.display());
+    output.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    
+    let ignore_dirs = [
+        "node_modules", ".git", "target", "dist", "build", ".vscode", ".idea", "vendor"
+    ];
+
+    // Recursive tree builder
+    fn build_tree(path: &std::path::Path, prefix: &str, is_last: bool, ignore: &[&str]) -> String {
+        let mut result = String::new();
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        
+        if ignore.contains(&name.as_ref()) {
+            return String::new();
+        }
+
+        let marker = if is_last { "└── " } else { "├── " };
+        let icon = if path.is_dir() { "📂" } else { file_icon(&name) };
+        
+        // Only append if it's not the root
+        if prefix != "ROOT" {
+            result.push_str(&format!("{}{}{} {}\n", prefix, marker, icon, name));
+        } else {
+            result.push_str(&format!("{} {}\n", icon, name));
+        }
+
+        if path.is_dir() {
+            let mut entries = vec![];
+            if let Ok(read_dir) = std::fs::read_dir(path) {
+                for entry in read_dir.flatten() {
+                    let file_name = entry.file_name().to_string_lossy().into_owned();
+                    if !ignore.contains(&file_name.as_str()) {
+                        entries.push(entry.path());
+                    }
+                }
+            }
+            
+            // Sort entries: folders first, then files alphabetically
+            entries.sort_by_key(|p| (!p.is_dir(), p.file_name().unwrap_or_default().to_owned()));
+
+            let count = entries.len();
+            for (i, entry_path) in entries.iter().enumerate() {
+                let new_prefix = if prefix == "ROOT" {
+                    "".to_string()
+                } else {
+                    format!("{}{}", prefix, if is_last { "    " } else { "│   " })
+                };
+                result.push_str(&build_tree(entry_path, &new_prefix, i == count - 1, ignore));
+            }
+        }
+        
+        result
+    }
+
+    output.push_str(&build_tree(&base, "ROOT", true, &ignore_dirs));
+    output.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    Ok(output)
+}
+
+/// Run compilation check to find errors for self-healing
+pub async fn get_compiler_errors() -> Result<String> {
+    let is_rust = PathBuf::from("Cargo.toml").exists();
+    
+    if !is_rust {
+        return Ok("⚠️ No Cargo.toml found in working directory. Self-healing currently supports Rust projects.".to_string());
+    }
+
+    // Run cargo check to capture stdout/stderr
+    let output = if cfg!(target_os = "windows") {
+        tokio::process::Command::new("cmd")
+            .args(["/C", "cargo check 2>&1"])
+            .output()
+            .await?
+    } else {
+        tokio::process::Command::new("sh")
+            .args(["-c", "cargo check 2>&1"])
+            .output()
+            .await?
+    };
+
+    let status = output.status.success();
+    let output_str = String::from_utf8_lossy(&output.stdout).to_string() 
+                   + &String::from_utf8_lossy(&output.stderr);
+
+    if status {
+        Ok("✅ All checks passed successfully. No compiler errors to heal!".to_string())
+    } else {
+        // Format raw output into an actionable report for the AI
+        let mut report = "🤖 [SELF-HEALING] Compiler Error Detected:\n".to_string();
+        report.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        report.push_str(&output_str);
+        report.push_str("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        report.push_str("🚀 Transmitting error diagnostics to AI for automatic healing...");
+        Ok(report)
+    }
+}
+
 /// Resolve a potentially relative path
 fn resolve_path(path: &str) -> PathBuf {
     let p = PathBuf::from(path);
