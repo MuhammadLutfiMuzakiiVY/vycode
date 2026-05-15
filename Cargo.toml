@@ -1,0 +1,40 @@
+[package]
+name = "vycode"
+version = "1.0.0"
+edition = "2021"
+authors = ["Muhammad Lutfi Muzaki"]
+description = "VyCode - AI Coding Terminal Assistant"
+license = "MIT"
+repository = "https://github.com/MuhammadLutfiMuzakiiVY/vycode"
+readme = "README.md"
+keywords = ["ai", "coding", "terminal", "assistant"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "vycode"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+crossterm = { version = "0.28", features = ["event-stream"] }
+ratatui = "0.29"
+anyhow = "1"
+dirs = "5"
+walkdir = "2"
+futures = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+syntect = "5"
+async-trait = "0.1"
+tokio-stream = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

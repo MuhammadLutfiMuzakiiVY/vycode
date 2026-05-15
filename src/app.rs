@@ -1,0 +1,740 @@
+// VyCode - Main Application Logic
+#![allow(dead_code)]
+use anyhow::Result;
+use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyModifiers};
+use futures::StreamExt;
+use ratatui::prelude::*;
+use tokio::sync::mpsc;
+
+use crate::commands::{handler as cmd_handler, CommandHandler, SlashCommand};
+use crate::config::AppConfig;
+use crate::context::ProjectContext;
+use crate::providers::{self, AiProvider, ChatMessage, ProviderType, StreamEvent};
+use crate::session::SessionManager;
+use crate::ui;
+
+// ── App State Enums ─────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AppScreen {
+    Startup,
+    ProviderSelect,
+    ApiKeyInput,
+    ModelInput,
+    Chat,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputMode {
+    Normal,
+    Editing,
+}
+
+// ── Main Application Struct ─────────────────────────────────────────
+
+pub struct App {
+    pub screen: AppScreen,
+    pub input_mode: InputMode,
+    pub input: String,
+    pub input_cursor: usize,
+    pub messages: Vec<ChatMessage>,
+    pub config: AppConfig,
+    pub provider: Option<Box<dyn AiProvider>>,
+    pub provider_type: ProviderType,
+    pub session_manager: SessionManager,
+    pub project_context: ProjectContext,
+    pub command_handler: CommandHandler,
+    pub should_quit: bool,
+    pub scroll_offset: usize,
+    pub streaming_text: String,
+    pub is_streaming: bool,
+    pub spinner_frame: usize,
+    pub status_message: String,
+    pub provider_select_index: usize,
+    pub no_splash: bool,
+    stream_tx: Option<mpsc::UnboundedSender<StreamEvent>>,
+    stream_rx: Option<mpsc::UnboundedReceiver<StreamEvent>>,
+}
+
+impl App {
+    /// Create a new App instance, loading persisted config and sessions
+    pub async fn new(project_path: Option<String>, no_splash: bool) -> Result<Self> {
+        let config = AppConfig::load()?;
+        let mut project_context = ProjectContext::new(project_path);
+        let session_manager = SessionManager::load()?;
+
+        let provider_type = config
+            .provider_type
+            .clone()
+            .unwrap_or(ProviderType::OpenAI);
+
+        let screen = if no_splash {
+            if config.is_configured() {
+                AppScreen::Chat
+            } else {
+                AppScreen::ProviderSelect
+            }
+        } else {
+            AppScreen::Startup
+        };
+
+        let provider: Option<Box<dyn AiProvider>> = if config.is_configured() {
+            Some(providers::create_provider(
+                config.provider_type.as_ref().unwrap_or(&ProviderType::OpenAI),
+                &config,
+            ))
+        } else {
+            None
+        };
+
+        let messages = if let Some(session) = session_manager.current_session() {
+            session.messages.clone()
+        } else {
+            Vec::new()
+        };
+
+        // Auto-index project if configured
+        if config.auto_scan {
+            project_context.index();
+        }
+
+        Ok(Self {
+            screen,
+            input_mode: InputMode::Editing,
+            input: String::new(),
+            input_cursor: 0,
+            messages,
+            config,
+            provider,
+            provider_type,
+            session_manager,
+            project_context,
+            command_handler: CommandHandler::new(),
+            should_quit: false,
+            scroll_offset: 0,
+            streaming_text: String::new(),
+            is_streaming: false,
+            spinner_frame: 0,
+            status_message: String::from("Ready"),
+            provider_select_index: 0,
+            no_splash,
+            stream_tx: None,
+            stream_rx: None,
+        })
+    }
+
+    /// Main event loop
+    pub async fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<()> {
+        let mut event_stream = EventStream::new();
+        let mut spinner_interval = tokio::time::interval(tokio::time::Duration::from_millis(100));
+
+        loop {
+            // Render the UI
+            terminal.draw(|f| ui::renderer::render(self, f))?;
+
+            if self.should_quit {
+                // Save state before exit
+                self.session_manager.save()?;
+                self.config.save()?;
+                break;
+            }
+
+            tokio::select! {
+                // Handle crossterm events
+                Some(Ok(event)) = event_stream.next() => {
+                    self.handle_event(event).await?;
+                }
+
+                // Handle streaming response chunks
+                Some(event) = async {
+                    if let Some(ref mut rx) = self.stream_rx {
+                        rx.recv().await
+                    } else {
+                        std::future::pending::<Option<StreamEvent>>().await
+                    }
+                } => {
+                    self.handle_stream_event(event);
+                }
+
+                // Spinner tick for loading animation
+                _ = spinner_interval.tick() => {
+                    if self.is_streaming {
+                        self.spinner_frame = self.spinner_frame.wrapping_add(1);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Handle a crossterm event
+    async fn handle_event(&mut self, event: Event) -> Result<()> {
+        match event {
+            Event::Key(key) => self.handle_key(key).await?,
+            Event::Resize(_, _) => {} // ratatui handles resize
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Handle key press events
+    async fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        // Global: Ctrl+C always quits
+        if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+            if self.is_streaming {
+                self.cancel_streaming();
+            } else {
+                self.should_quit = true;
+            }
+            return Ok(());
+        }
+
+        match self.screen {
+            AppScreen::Startup => {
+                // Any key progresses past startup
+                if config_needs_setup(&self.config) {
+                    self.screen = AppScreen::ProviderSelect;
+                } else {
+                    self.screen = AppScreen::Chat;
+                }
+            }
+
+            AppScreen::ProviderSelect => {
+                self.handle_provider_select(key).await?;
+            }
+
+            AppScreen::ApiKeyInput | AppScreen::ModelInput => {
+                self.handle_text_input(key).await?;
+            }
+
+            AppScreen::Chat => {
+                self.handle_chat_input(key).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Handle keys on the provider selection screen
+    async fn handle_provider_select(&mut self, key: KeyEvent) -> Result<()> {
+        let providers = ProviderType::all();
+        match key.code {
+            KeyCode::Up => {
+                if self.provider_select_index > 0 {
+                    self.provider_select_index -= 1;
+                }
+            }
+            KeyCode::Down => {
+                if self.provider_select_index < providers.len() - 1 {
+                    self.provider_select_index += 1;
+                }
+            }
+            KeyCode::Enter => {
+                let selected = providers[self.provider_select_index].clone();
+                self.provider_type = selected.clone();
+                self.config.set_provider(selected.clone());
+
+                // Set default model
+                self.config.set_model(selected.default_model());
+
+                if selected.needs_api_key() {
+                    self.input.clear();
+                    self.input_cursor = 0;
+                    self.screen = AppScreen::ApiKeyInput;
+                } else if selected.needs_base_url() {
+                    // For Ollama, go to model input with default base URL
+                    self.config
+                        .set_custom_base_url("http://localhost:11434");
+                    self.input = selected.default_model().to_string();
+                    self.input_cursor = self.input.len();
+                    self.screen = AppScreen::ModelInput;
+                } else {
+                    self.input = selected.default_model().to_string();
+                    self.input_cursor = self.input.len();
+                    self.screen = AppScreen::ModelInput;
+                }
+            }
+            KeyCode::Esc => {
+                self.should_quit = true;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Handle text input (API key / model name screens)
+    async fn handle_text_input(&mut self, key: KeyEvent) -> Result<()> {
+        match key.code {
+            KeyCode::Enter => {
+                if !self.input.is_empty() {
+                    match self.screen {
+                        AppScreen::ApiKeyInput => {
+                            self.config.set_api_key(&self.input);
+                            self.input = self
+                                .provider_type
+                                .default_model()
+                                .to_string();
+                            self.input_cursor = self.input.len();
+                            self.screen = AppScreen::ModelInput;
+                        }
+                        AppScreen::ModelInput => {
+                            self.config.set_model(&self.input);
+                            self.config.save()?;
+
+                            // Create provider and enter chat
+                            self.provider = Some(providers::create_provider(
+                                &self.provider_type,
+                                &self.config,
+                            ));
+                            self.input.clear();
+                            self.input_cursor = 0;
+                            self.status_message =
+                                format!("Connected to {}", self.provider_type.display_name());
+                            self.screen = AppScreen::Chat;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            KeyCode::Char(c) => {
+                self.input.insert(self.input_cursor, c);
+                self.input_cursor += 1;
+            }
+            KeyCode::Backspace => {
+                if self.input_cursor > 0 {
+                    self.input_cursor -= 1;
+                    self.input.remove(self.input_cursor);
+                }
+            }
+            KeyCode::Delete => {
+                if self.input_cursor < self.input.len() {
+                    self.input.remove(self.input_cursor);
+                }
+            }
+            KeyCode::Left => {
+                if self.input_cursor > 0 {
+                    self.input_cursor -= 1;
+                }
+            }
+            KeyCode::Right => {
+                if self.input_cursor < self.input.len() {
+                    self.input_cursor += 1;
+                }
+            }
+            KeyCode::Home => {
+                self.input_cursor = 0;
+            }
+            KeyCode::End => {
+                self.input_cursor = self.input.len();
+            }
+            KeyCode::Esc => {
+                // Go back
+                match self.screen {
+                    AppScreen::ApiKeyInput => {
+                        self.screen = AppScreen::ProviderSelect;
+                        self.input.clear();
+                        self.input_cursor = 0;
+                    }
+                    AppScreen::ModelInput => {
+                        if self.provider_type.needs_api_key() {
+                            self.screen = AppScreen::ApiKeyInput;
+                        } else {
+                            self.screen = AppScreen::ProviderSelect;
+                        }
+                        self.input.clear();
+                        self.input_cursor = 0;
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Handle keys in the chat screen
+    async fn handle_chat_input(&mut self, key: KeyEvent) -> Result<()> {
+        // Ctrl+L clears screen
+        if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('l') {
+            self.messages.clear();
+            self.session_manager.clear_current();
+            self.status_message = "Chat cleared".to_string();
+            return Ok(());
+        }
+
+        if self.is_streaming {
+            if key.code == KeyCode::Esc {
+                self.cancel_streaming();
+            }
+            return Ok(());
+        }
+
+        match key.code {
+            KeyCode::Enter => {
+                if !self.input.is_empty() {
+                    let input = self.input.clone();
+                    self.input.clear();
+                    self.input_cursor = 0;
+
+                    // Check for slash command
+                    if let Some(cmd) = SlashCommand::parse(&input) {
+                        self.execute_command(cmd).await?;
+                    } else {
+                        self.send_message(&input).await?;
+                    }
+                }
+            }
+            KeyCode::Char(c) => {
+                self.input.insert(self.input_cursor, c);
+                self.input_cursor += 1;
+            }
+            KeyCode::Backspace => {
+                if self.input_cursor > 0 {
+                    self.input_cursor -= 1;
+                    self.input.remove(self.input_cursor);
+                }
+            }
+            KeyCode::Delete => {
+                if self.input_cursor < self.input.len() {
+                    self.input.remove(self.input_cursor);
+                }
+            }
+            KeyCode::Left => {
+                if self.input_cursor > 0 {
+                    self.input_cursor -= 1;
+                }
+            }
+            KeyCode::Right => {
+                if self.input_cursor < self.input.len() {
+                    self.input_cursor += 1;
+                }
+            }
+            KeyCode::Home => {
+                self.input_cursor = 0;
+            }
+            KeyCode::End => {
+                self.input_cursor = self.input.len();
+            }
+            KeyCode::Up => {
+                self.scroll_offset = self.scroll_offset.saturating_add(1);
+            }
+            KeyCode::Down => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(1);
+            }
+            KeyCode::Esc => {
+                self.should_quit = true;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Send a chat message and start streaming the response
+    async fn send_message(&mut self, content: &str) -> Result<()> {
+        // Add user message
+        let user_msg = ChatMessage::user(content);
+        self.messages.push(user_msg.clone());
+        self.session_manager.add_message_to_current(user_msg);
+
+        // Build messages with system prompt
+        let system_prompt =
+            providers::build_system_prompt(self.project_context.get_summary());
+        let mut api_messages = vec![ChatMessage::system(&system_prompt)];
+        api_messages.extend(self.messages.clone());
+
+        // Start streaming
+        self.is_streaming = true;
+        self.streaming_text.clear();
+        self.spinner_frame = 0;
+        self.status_message = "Generating response...".to_string();
+
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.stream_rx = Some(rx);
+
+        if let Some(provider) = &self.provider {
+            let config = self.config.clone();
+            let messages = api_messages;
+
+            // Clone what we need for the spawned task
+            let provider_name = provider.name().to_string();
+
+            // We need to create a new provider for the spawned task
+            let provider_type = self.provider_type.clone();
+            let config_clone = config.clone();
+
+            tokio::spawn(async move {
+                let provider = providers::create_provider(&provider_type, &config_clone);
+                let max_retries = config.max_retries;
+
+                for attempt in 0..=max_retries {
+                    match provider.stream_chat(&messages, &config, tx.clone()).await {
+                        Ok(_) => break,
+                        Err(e) => {
+                            if attempt < max_retries {
+                                let delay = config.retry_delay_ms * (attempt as u64 + 1);
+                                let _ = tx.send(StreamEvent::Error(format!(
+                                    "Retry {}/{max_retries}: {e}",
+                                    attempt + 1
+                                )));
+                                tokio::time::sleep(tokio::time::Duration::from_millis(delay))
+                                    .await;
+                            } else {
+                                let _ = tx.send(StreamEvent::Error(format!(
+                                    "Failed after {max_retries} retries: {e}"
+                                )));
+                                let _ = tx.send(StreamEvent::Done);
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            self.add_system_message("No provider configured. Use /provider to set up.");
+            self.is_streaming = false;
+        }
+
+        Ok(())
+    }
+
+    /// Handle a streaming event from the provider
+    fn handle_stream_event(&mut self, event: StreamEvent) {
+        match event {
+            StreamEvent::Chunk(text) => {
+                self.streaming_text.push_str(&text);
+            }
+            StreamEvent::Done => {
+                // Finalize the assistant message
+                if !self.streaming_text.is_empty() {
+                    let assistant_msg = ChatMessage::assistant(&self.streaming_text);
+                    self.messages.push(assistant_msg.clone());
+                    self.session_manager.add_message_to_current(assistant_msg);
+                }
+                self.streaming_text.clear();
+                self.is_streaming = false;
+                self.stream_rx = None;
+                self.status_message = "Ready".to_string();
+
+                // Auto-save session
+                let _ = self.session_manager.save();
+            }
+            StreamEvent::Error(msg) => {
+                self.status_message = format!("Error: {msg}");
+                // Don't stop streaming on transient errors (retries)
+                if msg.starts_with("Failed after") {
+                    self.is_streaming = false;
+                    self.stream_rx = None;
+                    self.add_system_message(&format!("⚠️ {msg}"));
+                }
+            }
+        }
+    }
+
+    /// Cancel the current streaming response
+    fn cancel_streaming(&mut self) {
+        if !self.streaming_text.is_empty() {
+            let partial = ChatMessage::assistant(&format!("{} [cancelled]", self.streaming_text));
+            self.messages.push(partial.clone());
+            self.session_manager.add_message_to_current(partial);
+        }
+        self.streaming_text.clear();
+        self.is_streaming = false;
+        self.stream_rx = None;
+        self.status_message = "Cancelled".to_string();
+    }
+
+    /// Execute a slash command
+    async fn execute_command(&mut self, cmd: SlashCommand) -> Result<()> {
+        match cmd {
+            SlashCommand::Help => {
+                let help = CommandHandler::help_text();
+                self.add_system_message(&help);
+            }
+            SlashCommand::Model(name) => {
+                if let Some(model) = name {
+                    self.config.set_model(&model);
+                    self.config.save()?;
+                    self.status_message = format!("Model: {model}");
+                    self.add_system_message(&format!("✅ Model changed to: {model}"));
+                } else {
+                    let current = self.config.model.as_deref().unwrap_or("N/A");
+                    self.add_system_message(&format!("Current model: {current}"));
+                }
+            }
+            SlashCommand::Provider => {
+                self.screen = AppScreen::ProviderSelect;
+                self.input.clear();
+                self.input_cursor = 0;
+            }
+            SlashCommand::ApiKey => {
+                self.screen = AppScreen::ApiKeyInput;
+                self.input.clear();
+                self.input_cursor = 0;
+            }
+            SlashCommand::Scan => {
+                self.status_message = "Scanning project...".to_string();
+                match cmd_handler::scan_project(None) {
+                    Ok(result) => {
+                        self.project_context.index();
+                        self.add_system_message(&result);
+                        self.status_message = "Scan complete".to_string();
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Scan failed: {e}"));
+                    }
+                }
+            }
+            SlashCommand::Fix(file) => {
+                let prompt = if let Some(f) = &file {
+                    match cmd_handler::read_file(f) {
+                        Ok(content) => format!(
+                            "Please analyze and fix any bugs in this code:\n\n{content}"
+                        ),
+                        Err(e) => {
+                            self.add_system_message(&format!("❌ {e}"));
+                            return Ok(());
+                        }
+                    }
+                } else {
+                    "Please analyze and fix any bugs in the code I've shared.".to_string()
+                };
+                self.send_message(&prompt).await?;
+            }
+            SlashCommand::Explain(file) => {
+                let prompt = if let Some(f) = &file {
+                    match cmd_handler::read_file(f) {
+                        Ok(content) => format!(
+                            "Please explain this code in detail:\n\n{content}"
+                        ),
+                        Err(e) => {
+                            self.add_system_message(&format!("❌ {e}"));
+                            return Ok(());
+                        }
+                    }
+                } else {
+                    "Please explain the code I've shared.".to_string()
+                };
+                self.send_message(&prompt).await?;
+            }
+            SlashCommand::Clear => {
+                self.messages.clear();
+                self.session_manager.clear_current();
+                self.status_message = "Chat cleared".to_string();
+            }
+            SlashCommand::Exit => {
+                self.should_quit = true;
+            }
+            SlashCommand::Read(path) => match cmd_handler::read_file(&path) {
+                Ok(content) => {
+                    self.add_system_message(&content);
+                }
+                Err(e) => {
+                    self.add_system_message(&format!("❌ {e}"));
+                }
+            },
+            SlashCommand::Write(path, content) => match cmd_handler::write_file(&path, &content) {
+                Ok(msg) => {
+                    self.add_system_message(&msg);
+                }
+                Err(e) => {
+                    self.add_system_message(&format!("❌ {e}"));
+                }
+            },
+            SlashCommand::Exec(cmd_str) => {
+                self.status_message = format!("Running: {cmd_str}");
+                match cmd_handler::exec_command(&cmd_str).await {
+                    Ok(output) => {
+                        self.add_system_message(&output);
+                        self.status_message = "Command complete".to_string();
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Command failed: {e}"));
+                        self.status_message = "Command failed".to_string();
+                    }
+                }
+            }
+            SlashCommand::Session(name) => {
+                if let Some(name) = name {
+                    if self.session_manager.switch_session(&name) {
+                        self.messages = self
+                            .session_manager
+                            .current_session()
+                            .map(|s| s.messages.clone())
+                            .unwrap_or_default();
+                        self.add_system_message(&format!("✅ Switched to session: {name}"));
+                    } else {
+                        self.session_manager.create_session(&name);
+                        self.messages.clear();
+                        self.add_system_message(&format!("✅ Created new session: {name}"));
+                    }
+                    self.session_manager.save()?;
+                } else {
+                    let names = self.session_manager.session_names();
+                    let active = self
+                        .session_manager
+                        .current_session()
+                        .map(|s| s.name.clone())
+                        .unwrap_or_default();
+                    let list: Vec<String> = names
+                        .iter()
+                        .map(|n| {
+                            if *n == active {
+                                format!("  ▸ {n} (active)")
+                            } else {
+                                format!("    {n}")
+                            }
+                        })
+                        .collect();
+                    self.add_system_message(&format!(
+                        "Sessions:\n{}",
+                        list.join("\n")
+                    ));
+                }
+            }
+            SlashCommand::Export => {
+                if let Some(md) = self.session_manager.export_current() {
+                    let session_name = self
+                        .session_manager
+                        .current_session()
+                        .map(|s| s.name.clone())
+                        .unwrap_or_else(|| "session".to_string());
+                    let filename = format!("vycode_export_{session_name}.md");
+                    match cmd_handler::write_file(&filename, &md) {
+                        Ok(msg) => self.add_system_message(&msg),
+                        Err(e) => self.add_system_message(&format!("❌ Export failed: {e}")),
+                    }
+                }
+            }
+            SlashCommand::Theme(theme) => {
+                if let Some(t) = theme {
+                    self.config.theme.accent_color = t.clone();
+                    self.config.save()?;
+                    self.add_system_message(&format!("✅ Theme set to: {t}"));
+                } else {
+                    self.add_system_message(&format!(
+                        "Current theme: {}",
+                        self.config.theme.accent_color
+                    ));
+                }
+            }
+            SlashCommand::Unknown(cmd) => {
+                self.add_system_message(&format!(
+                    "❌ Unknown command: /{cmd}\nType /help for available commands."
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Add a system message to the chat
+    fn add_system_message(&mut self, content: &str) {
+        let msg = ChatMessage::assistant(content);
+        self.messages.push(msg.clone());
+        self.session_manager.add_message_to_current(msg);
+    }
+}
+
+/// Check if the config requires initial setup
+fn config_needs_setup(config: &AppConfig) -> bool {
+    !config.is_configured()
+}
