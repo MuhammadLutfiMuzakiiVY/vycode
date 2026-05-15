@@ -2,8 +2,9 @@
 FROM rust:1.75-slim as builder
 WORKDIR /app
 
-# Install dependencies for compilation
+# Install dependencies for compilation (including build-essential for C bindings needed by crates like syntect)
 RUN apt-get update && apt-get install -y \
+    build-essential \
     pkg-config \
     libssl-dev \
     git \
