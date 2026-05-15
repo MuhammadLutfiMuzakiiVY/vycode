@@ -2,17 +2,17 @@
   <!-- Project Logo -->
   <img src="docs/vycode-logo.png" alt="VyCode Logo" width="250" />
 
-  # VyCode v2.0.0 — The Autonomous Terminal AI Coding Assistant
+  # VyCode v3.0.0 — The Sovereign Autonomous AI Terminal Agent
   
   **Created by [Muhammad Lutfi Muzaki](https://github.com/MuhammadLutfiMuzakiiVY)**
 
   [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Status](https://img.shields.io/badge/Status-Production--Ready-success.svg)]()
-  [![Version](https://img.shields.io/badge/Release-v2.0.0-blue.svg)]()
+  [![Version](https://img.shields.io/badge/Release-v3.0.0-blue.svg)]()
 </div>
 
-> **VyCode 2.0** is a hyper-lightweight, blazingly fast autonomous AI coding terminal assistant engineered entirely in Rust. It features native **Multi-Model Hot Swapping**, a **Self-Healing Active Compile Watcher**, dynamic **Visual Dependency Trees**, and an **Autonomous Multi-Step Task Chain** framework.
+> **VyCode 3.0** is a hyper-lightweight, blazingly fast sovereign autonomous terminal AI agent engineered entirely in Rust. It features **Recursive Native EXEC Tools Auto-Execution**, a high-performance **SQLite3 Relational & FTS5 Semantic Memory Engine**, and advanced multi-protocol enterprise infrastructures.
 
 ---
 
@@ -31,10 +31,10 @@ Track the current lifecycle progression and verified feature checklist:
 - [x] **6. Persistent Memory**: Encrypted config layers and JSON multiversion session recovery.
 - [x] **7. Git Integration**: Control versioning natively with the newly integrated `/git` command!
 
-### 🚀 Tahap 3 (Future Scale) — **IN PROGRESS**
+### 🚀 Tahap 3 (Future Scale & Autonomy) — **100% COMPLETED**
 - [x] **8. TUI Dashboard**: Vibrant premium orange dark-mode terminal layout powered by `ratatui`.
-- [ ] **9. Plugin Tools**: **[PLANNED]** Module loading framework for external Rust-based toolkits.
-- [x] **10. Benchmark**: Confirmed scientific metrics proving sub-15ms cold startups.
+- [x] **9. Sovereign Agent Loop**: Dynamic native auto-execution of `[EXEC]` and `[WRITE]` triggers recursively.
+- [x] **10. Real-Time SQLite DB**: Embedded FTS5 BM25 semantic indexing database for cross-session context.
 
 ---
 
@@ -135,6 +135,14 @@ Operate entire server rooms, control IoT gadgets, drive web scrapers, or query M
     *   **🗄️ Database CLI Runner**: Exec SQL directly to targets. `/infra sql SELECT * FROM users;` (Compatible with SQLite, PostgreSQL, MySQL clients).
     *   **🧩 Model Context Protocol (MCP)**: Full MCP-client compatibility! `/infra mcp list` (View server tools) or `/infra mcp call <tool> <args>` to talk to standard external toolservers!
 *   **🔑 Quick Setup**: Configure credentials once via `/infra-setup <key> <value>` (e.g., `gh_token`, `ssh_host`, `hass_token`, etc.) to establish persistent bonds!
+
+### 12. 💎 Sovereign Recursive Agent Loop & SQLite3 Semantic Memory
+VyCode v3.0 steps into full sovereignty, providing true hands-on execution and absolute persistent long-term recall:
+*   ⚡ **Recursive Native Auto-Execution**: Run `/chain <goal>`. The system yields a fully autonomous cycle. The AI outputs `[EXEC: <command>]` or `[WRITE: <path>|<content>]`. The engine automatically executes it asynchronously and feeds terminal outputs (`stdout`/`stderr`) directly back to the LLM instantly until `[DONE]` is achieved!
+*   🧠 **SQLite FTS5 Semantic Indexing Engine**: Upgraded from flat JSONs to relational storage!
+    *   **Virtual Tables (BM25 Ranking)**: Lightning-fast full-text search (`/remember` / `/memory`) queries!
+    *   **Cross-Session History**: Autologs user/assistant interaction layers natively to SQLite for infinite historic resumes.
+    *   **Workspace Summary Cache**: Caches high-speed hashes and summaries of codeblocks permanently.
 
 ---
 

@@ -225,7 +225,7 @@ impl CommandHandler {
     /// Get help text for all commands
     pub fn help_text() -> String {
         r#"╔══════════════════════════════════════════════════╗
-║              VyCode v2.5.0 Commands              ║
+║              VyCode v3.0.0 Commands              ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  /help          Show this help message           ║
@@ -235,7 +235,7 @@ impl CommandHandler {
 ║  /scan          Scan project context             ║
 ║  /graph         Visual ASCII Dependency Tree     ║
 ║  /heal [file]   Self-healing active compiler     ║
-║  /chain <task>  Autonomous Agentic loop execution║
+║  /chain <task>  💎 Sovereign Autonomous EXEC Loop║
 ║  /git <args>    Integrated Git Control Center    ║
 ║  /docs <url>    Read web docs + inject context   ║
 ║  /tg <msg>      Push message/update to Telegram  ║
@@ -246,8 +246,8 @@ impl CommandHandler {
 ║  /omni-setup <k><v>Global Omni-Channel Settings  ║
 ║  /infra <s><op>  Enterprise Automation (9+ tools)║
 ║  /infra-setup<k> Configure Global Infrastructure  ║
-║  /memory        View Long-Term Project Memory    ║
-║  /remember <f>  Store a fact in local memory     ║
+║  /memory        SQLite Fast Relational Engine    ║
+║  /remember <f>  Store fact in relational SQL     ║
 ║  /forget <id>   Wipe a fact by ID from memory    ║
 ║  /fix [file]    Auto-fix code issues             ║
 ║  /explain [file] Explain code structure          ║

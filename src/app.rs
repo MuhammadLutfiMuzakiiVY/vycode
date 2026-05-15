@@ -54,6 +54,9 @@ pub struct App {
     pub no_splash: bool,
     stream_tx: Option<mpsc::UnboundedSender<StreamEvent>>,
     stream_rx: Option<mpsc::UnboundedReceiver<StreamEvent>>,
+    pub agent_chain_active: bool,
+    pub agent_chain_steps: usize,
+    pub pending_agent_action: Option<String>,
 }
 
 impl App {
@@ -120,6 +123,9 @@ impl App {
             no_splash,
             stream_tx: None,
             stream_rx: None,
+            agent_chain_active: false,
+            agent_chain_steps: 0,
+            pending_agent_action: None,
         })
     }
 
@@ -160,6 +166,63 @@ impl App {
                 _ = spinner_interval.tick() => {
                     if self.is_streaming {
                         self.spinner_frame = self.spinner_frame.wrapping_add(1);
+                    }
+                }
+
+                // 💎 HIGH-PERFORMANCE FEATURE: Sovereign Agent Fully Autonomous Loop Handler
+                _ = async {
+                    if !self.is_streaming && self.agent_chain_active && self.pending_agent_action.is_some() {
+                        // Small yield to allow TUI refresh to hit screen before blocking execute
+                        tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
+                    } else {
+                        std::future::pending::<()>().await
+                    }
+                } => {
+                    if let Some(action) = self.pending_agent_action.take() {
+                        self.agent_chain_steps += 1;
+
+                        // Absolute safety ceiling to prevent token burn / infinite agent loop
+                        if self.agent_chain_steps > 10 {
+                             self.add_system_message("⚠️🛑 **AGENT SAFETY HALT:** Reached maximum 10-step Sovereign limit! Halting autonomous chain to conserve resources.");
+                             self.agent_chain_active = false;
+                             self.agent_chain_steps = 0;
+                             continue;
+                        }
+
+                        self.status_message = format!("🔄 Running Sovereign Agent Step {}...", self.agent_chain_steps);
+                        
+                        let feedback = if action.starts_with("exec:") {
+                            let cmd = &action[5..];
+                            self.add_system_message(&format!("⚡⚙️ **[Auto-Exec Phase {}]:** Running `{}`", self.agent_chain_steps, cmd));
+                            match cmd_handler::exec_command(cmd).await {
+                                Ok(stdout) => format!("✅ NATIVE EXECUTION STDOUT:\n```\n{}\n```", stdout),
+                                Err(e) => format!("❌ NATIVE EXECUTION ERROR:\n```\n{}\n```", e),
+                            }
+                        } else if action.starts_with("write:") {
+                            let rest = &action[6..];
+                            if let Some(pipe_idx) = rest.find('|') {
+                                let path = rest[..pipe_idx].trim();
+                                let content = &rest[pipe_idx + 1..];
+                                self.add_system_message(&format!("⚡💾 **[Auto-Exec Phase {}]:** Patched contents into `{}`", self.agent_chain_steps, path));
+                                match cmd_handler::write_file(path, content) {
+                                    Ok(msg) => format!("✅ FILE NATIVELY MODIFIED: {}", msg),
+                                    Err(e) => format!("❌ FILE MODIFICATION ERROR: {}", e),
+                                }
+                            } else {
+                                "❌ SCHEMA PARSE ERROR: Invalid syntax. Use `[WRITE: <filepath>|<content>]`. Notice the `|` separator!".to_string()
+                            }
+                        } else {
+                            "❌ UNSUPPORTED COMMAND PROTOCOL".to_string()
+                        };
+
+                        // Pipe execution feedback directly back into prompt stream automatically!
+                        let loop_prompt = format!(
+                            "🤖⚙️ SOVEREIGN AUTO-FEEDBACK EVENT (Phase {} of 10):\n{}\n\nCRITICAL INSTRUCTION: Assess the results above. If the task objective is 100% completed, respond with `[DONE: <summary>]`. If additional work is required, issue your NEXT command now.",
+                            self.agent_chain_steps,
+                            feedback
+                        );
+                        
+                        let _ = self.send_message(&loop_prompt).await;
                     }
                 }
             }
@@ -437,6 +500,12 @@ impl App {
         self.messages.push(user_msg.clone());
         self.session_manager.add_message_to_current(user_msg);
 
+        // Real-Time SQLite Relational History Persistence
+        let s_id = self.session_manager.current_session()
+            .map(|s| s.id.clone())
+            .unwrap_or_else(|| "default".to_string());
+        let _ = self.project_context.memory.record_history(&s_id, "user", content);
+
         // Build messages with system prompt and local instruction files (Feature 10: VYCODE.md)
         let base_sys = providers::build_system_prompt(self.project_context.get_summary());
         
@@ -518,6 +587,42 @@ impl App {
                     let assistant_msg = ChatMessage::assistant(&self.streaming_text);
                     self.messages.push(assistant_msg.clone());
                     self.session_manager.add_message_to_current(assistant_msg);
+
+                    // Real-Time SQLite Relational History Persistence
+                    let s_id = self.session_manager.current_session()
+                        .map(|s| s.id.clone())
+                        .unwrap_or_else(|| "default".to_string());
+                    let _ = self.project_context.memory.record_history(&s_id, "assistant", &self.streaming_text);
+
+                    // Sovereign Agent Action Queue Interceptor
+                    if self.agent_chain_active {
+                        let text = self.streaming_text.clone();
+                        
+                        if let Some(start) = text.find("[EXEC: ") {
+                            let sub = &text[start + 7..];
+                            if let Some(end) = sub.find(']') {
+                                self.pending_agent_action = Some(format!("exec:{}", &sub[..end].trim()));
+                            }
+                        } else if let Some(start) = text.find("[WRITE: ") {
+                            let sub = &text[start + 8..];
+                            if let Some(end) = sub.find(']') {
+                                self.pending_agent_action = Some(format!("write:{}", &sub[..end].trim()));
+                            }
+                        } else if let Some(start) = text.find("[DONE: ") {
+                            let sub = &text[start + 7..];
+                            if let Some(end) = sub.find(']') {
+                                let summary = &sub[..end].trim();
+                                self.add_system_message(&format!("✅🏆 **SOVEREIGN AGENT COMPLETION EVENT:**\n{summary}"));
+                            }
+                            self.agent_chain_active = false;
+                            self.agent_chain_steps = 0;
+                            self.pending_agent_action = None;
+                        } else {
+                            // Auto-safety: if AI stops returning EXEC or DONE tags, automatically disengage
+                            self.agent_chain_active = false;
+                            self.add_system_message("ℹ️ *Sovereign Loop naturally dissolved: No further active schema commands provided.*");
+                        }
+                    }
                 }
                 self.streaming_text.clear();
                 self.is_streaming = false;
@@ -631,15 +736,24 @@ impl App {
                 }
             }
             SlashCommand::Chain(task) => {
-                self.status_message = "Starting autonomous agent chain...".to_string();
-                self.add_system_message(&format!("🤖 **Initializing Autonomous Task Chain:** \"{task}\""));
+                self.status_message = "Initializing Sovereign Agent Loop...".to_string();
+                self.add_system_message(&format!("🤖💎 **SOVEREIGN AGENT PROTOCOL ENGAGED:** \"{task}\"\n*Activating recursive autonomous execution loop...*"));
+                
+                // Engage internal loop registers
+                self.agent_chain_active = true;
+                self.agent_chain_steps = 0;
+                self.pending_agent_action = None;
+
                 let agent_prompt = format!(
-                    "CRITICAL DIRECTIVE: You are operating in AUTONOMOUS TASK CHAINING MODE (v2.0).\n\
-                    Your task: \"{}\"\n\n\
-                    You have direct workspace execution privileges. Break down the goal into iterative steps.\n\
-                    For each step, write code or instructions, and you can specify command execution using: \n\
-                    `[EXEC: <shell command>]` or `[WRITE: <path> <contents>]` to instruct the developer.\n\
-                    Start step 1 now:",
+                    "CRITICAL DIRECTIVE: YOU ARE NOW OPERATING AS A FULLY AUTONOMOUS SOVEREIGN AGENT (v3.0).\n\
+                    Objective: \"{}\"\n\n\
+                    IMPORTANT: The developer platform has granted you DIRECT NATIVE EXECUTION PRIVILEGES.\n\
+                    Whenever you output an execution command, the VyCode Engine will IMMEDIATELY execute it natively and inject the terminal stdout/stderr directly back into your prompt automatically!\n\n\
+                    🔥 NATIVE COMMAND SCHEMAS:\n\
+                    - `[EXEC: <shell command>]` -> Executes shell command, installs packages, runs compilers/scripts.\n\
+                    - `[WRITE: <filepath>|<filecontent>]` -> Safely writes or patches code files natively.\n\
+                    - `[DONE: <result>]` -> Call ONLY when the task objective is 100% verified and complete.\n\n\
+                    Analyze the objective, formulate the execution steps, and initiate STEP 1 immediately by outputting the relevant schema command! (Limit 1 action per turn).",
                     task
                 );
                 self.send_message(&agent_prompt).await?;

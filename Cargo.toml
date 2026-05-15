@@ -1,6 +1,6 @@
 [package]
 name = "vycode"
-version = "2.5.0"
+version = "3.0.0"
 edition = "2021"
 authors = ["Muhammad Lutfi Muzaki"]
 description = "VyCode - AI Coding Terminal Assistant"
@@ -32,6 +32,7 @@ uuid = { version = "1", features = ["v4"] }
 syntect = "5"
 async-trait = "0.1"
 tokio-stream = "0.1"
+rusqlite = { version = "0.31", features = ["bundled"] }
 
 [profile.release]
 opt-level = 3
