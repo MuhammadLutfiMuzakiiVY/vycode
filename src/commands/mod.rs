@@ -33,6 +33,8 @@ pub enum SlashCommand {
     Dc(String),
     OmniSetup(String, String),
     Broadcast(String, String),
+    InfraSetup(String, String),
+    Infra(String, String),
     Unknown(String),
 }
 
@@ -182,6 +184,31 @@ impl SlashCommand {
                     Self::Unknown("broadcast requires: /broadcast <channel> <message>".to_string())
                 }
             }
+            "infra-setup" => {
+                if let Some(args) = arg {
+                    let sub_parts: Vec<&str> = args.splitn(2, ' ').collect();
+                    if sub_parts.len() == 2 {
+                        Self::InfraSetup(sub_parts[0].to_string(), sub_parts[1].to_string())
+                    } else {
+                        Self::Unknown("infra-setup requires: /infra-setup <key> <value>".to_string())
+                    }
+                } else {
+                    Self::Unknown("infra-setup requires arguments".to_string())
+                }
+            }
+            "infra" | "automation" => {
+                if let Some(args) = arg {
+                    let sub_parts: Vec<&str> = args.splitn(2, ' ').collect();
+                    if sub_parts.len() == 2 {
+                        Self::Infra(sub_parts[0].to_string(), sub_parts[1].to_string())
+                    } else {
+                        // For single-argument operations (e.g. "/infra docker ps")
+                        Self::Infra(sub_parts[0].to_string(), "".to_string())
+                    }
+                } else {
+                    Self::Unknown("infra requires an integration target: /infra <subsystem> [args]".to_string())
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -198,7 +225,7 @@ impl CommandHandler {
     /// Get help text for all commands
     pub fn help_text() -> String {
         r#"╔══════════════════════════════════════════════════╗
-║              VyCode v2.4.0 Commands              ║
+║              VyCode v2.5.0 Commands              ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  /help          Show this help message           ║
@@ -217,6 +244,8 @@ impl CommandHandler {
 ║  /discord-setup Configure Discord Webhook URL    ║
 ║  /broadcast <c><m>Omni-Channel Broadcast (7+ App)║
 ║  /omni-setup <k><v>Global Omni-Channel Settings  ║
+║  /infra <s><op>  Enterprise Automation (9+ tools)║
+║  /infra-setup<k> Configure Global Infrastructure  ║
 ║  /memory        View Long-Term Project Memory    ║
 ║  /remember <f>  Store a fact in local memory     ║
 ║  /forget <id>   Wipe a fact by ID from memory    ║

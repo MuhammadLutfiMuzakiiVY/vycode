@@ -876,6 +876,120 @@ impl App {
                     }
                 }
             }
+            SlashCommand::InfraSetup(key, value) => {
+                let key_norm = key.to_lowercase();
+                let mut updated = true;
+                match key_norm.as_str() {
+                    "github_token" | "gh_token" => self.config.infra.github_token = Some(value),
+                    "github_repo" | "gh_repo" => self.config.infra.github_repo = Some(value),
+                    "ssh_host" => self.config.infra.ssh_host = Some(value),
+                    "ssh_user" => self.config.infra.ssh_user = Some(value),
+                    "ssh_port" => self.config.infra.ssh_port = Some(value),
+                    "hass_url" => self.config.infra.hass_url = Some(value),
+                    "hass_token" => self.config.infra.hass_token = Some(value),
+                    "db_engine" => self.config.infra.db_engine = Some(value),
+                    "db_uri" => self.config.infra.db_uri = Some(value),
+                    "mcp_url" | "mcp_server" => self.config.infra.mcp_server_url = Some(value),
+                    _ => {
+                        updated = false;
+                        self.add_system_message(&format!("❌ Unknown configuration key: `{key}`. Supported: gh_token, gh_repo, ssh_host, ssh_user, ssh_port, hass_url, hass_token, db_engine, db_uri, mcp_url"));
+                    }
+                }
+
+                if updated {
+                    match self.config.save() {
+                        Ok(_) => {
+                            self.add_system_message(&format!("✅ **Infrastructure Credentials Bound!**\nSuccessfully saved `{key}` configurations securely."));
+                        }
+                        Err(e) => {
+                            self.add_system_message(&format!("❌ Failed to write config storage: {e}"));
+                        }
+                    }
+                }
+            }
+            SlashCommand::Infra(subsystem, params) => {
+                let sys_norm = subsystem.to_lowercase();
+                self.status_message = format!("Invoking {} infrastructure system...", sys_norm);
+                
+                use crate::tools::ToolRouter;
+                // Parse operational sub-arguments
+                let op_args: Vec<&str> = params.split_whitespace().collect();
+
+                let result = match sys_norm.as_str() {
+                    "github" | "gh" => {
+                        if let (Some(tok), Some(repo)) = (&self.config.infra.github_token, &self.config.infra.github_repo) {
+                            let op = op_args.get(0).unwrap_or(&"issues");
+                            let pay = if op_args.len() > 1 { &params[params.find(op_args[1]).unwrap_or(0)..] } else { "" };
+                            ToolRouter::route_command("github", &[tok, repo, op, pay]).await
+                        } else {
+                            Err(anyhow::anyhow!("GitHub configs (gh_token, gh_repo) are missing! Run `/infra-setup`."))
+                        }
+                    }
+                    "browser" | "chrome" => {
+                        let op = op_args.get(0).unwrap_or(&"screenshot");
+                        let url = op_args.get(1).unwrap_or(&"https://github.com");
+                        let out = if op_args.len() > 2 { op_args[2] } else { "" };
+                        ToolRouter::route_command("browser", &[op, url, out]).await
+                    }
+                    "docker" => {
+                        let op = op_args.get(0).unwrap_or(&"ps");
+                        let arg = if op_args.len() > 1 { op_args[1] } else { "" };
+                        ToolRouter::route_command("docker", &[op, arg]).await
+                    }
+                    "ssh" => {
+                        if let (Some(host), Some(user)) = (&self.config.infra.ssh_host, &self.config.infra.ssh_user) {
+                            let port = self.config.infra.ssh_port.as_deref().unwrap_or("22");
+                            let cmd = if !op_args.is_empty() { &params } else { "uname -a" };
+                            ToolRouter::route_command("ssh", &[host, user, port, cmd]).await
+                        } else {
+                            Err(anyhow::anyhow!("SSH configs (ssh_host, ssh_user) missing!"))
+                        }
+                    }
+                    "hass" | "homeassistant" => {
+                        if let (Some(url), Some(tok)) = (&self.config.infra.hass_url, &self.config.infra.hass_token) {
+                            let op = op_args.get(0).unwrap_or(&"states");
+                            let ent = if op_args.len() > 1 { op_args[1] } else { "" };
+                            ToolRouter::route_command("hass", &[url, tok, op, ent]).await
+                        } else {
+                            Err(anyhow::anyhow!("HASS configuration missing!"))
+                        }
+                    }
+                    "db" | "database" | "sql" => {
+                        if let (Some(eng), Some(uri)) = (&self.config.infra.db_engine, &self.config.infra.db_uri) {
+                            let sql = if !op_args.is_empty() { &params } else { "SELECT 1;" };
+                            ToolRouter::route_command("db", &[eng, uri, sql]).await
+                        } else {
+                            Err(anyhow::anyhow!("Database connection credentials missing!"))
+                        }
+                    }
+                    "mcp" => {
+                        if let Some(srv) = &self.config.infra.mcp_server_url {
+                            let op = op_args.get(0).unwrap_or(&"list");
+                            if op == &"list" {
+                                ToolRouter::route_command("mcp", &[srv, "list"]).await
+                            } else {
+                                let tool = op_args.get(1).ok_or_else(|| anyhow::anyhow!("Tool name required!"))?;
+                                let args_raw = if op_args.len() > 2 { &params[params.find(op_args[2]).unwrap_or(0)..] } else { "{}" };
+                                ToolRouter::route_command("mcp", &[srv, "call", tool, args_raw]).await
+                            }
+                        } else {
+                            Err(anyhow::anyhow!("MCP Server URL missing! Configure via `/infra-setup mcp_url <url>`"))
+                        }
+                    }
+                    _ => Err(anyhow::anyhow!("Subsystem `{}` is not an enterprise automation target.", subsystem)),
+                };
+
+                match result {
+                    Ok(resp) => {
+                        self.add_system_message(&resp);
+                        self.status_message = format!("{} successful", sys_norm);
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Infrastructure action failed: {e}"));
+                        self.status_message = "Action failed".to_string();
+                    }
+                }
+            }
             SlashCommand::Fix(file) => {
                 let prompt = if let Some(f) = &file {
                     match cmd_handler::read_file(f) {

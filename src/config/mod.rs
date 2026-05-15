@@ -24,6 +24,7 @@ pub struct AppConfig {
     pub telegram_chat_id: Option<String>,  // Remote Telegram Receiver ID
     pub discord_webhook: Option<String>,   // Discord Webhook URL Integration
     pub omni: OmniMessagingConfig,         // Omni-Channel Global Network
+    pub infra: InfraConfig,                // Enterprise Infrastructure Automations
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +59,20 @@ pub struct OmniMessagingConfig {
     pub sms_recipient: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InfraConfig {
+    pub github_token: Option<String>,
+    pub github_repo: Option<String>,
+    pub ssh_host: Option<String>,
+    pub ssh_user: Option<String>,
+    pub ssh_port: Option<String>,
+    pub hass_url: Option<String>,
+    pub hass_token: Option<String>,
+    pub db_engine: Option<String>,
+    pub db_uri: Option<String>,
+    pub mcp_server_url: Option<String>,
+}
+
 impl Default for ThemeConfig {
     fn default() -> Self {
         Self {
@@ -84,6 +99,7 @@ impl Default for AppConfig {
             telegram_chat_id: None,
             discord_webhook: None,
             omni: OmniMessagingConfig::default(),
+            infra: InfraConfig::default(),
         }
     }
 }

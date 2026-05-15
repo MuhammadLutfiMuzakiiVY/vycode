@@ -121,6 +121,21 @@ Operate VyCode remotely and receive live push notifications on your favorite app
     *   **📟 SMS Gateway (Twilio etc.)**: Keys `sms_url`, `sms_rec`
 *   **🔒 Encrypted Local Configurations**: All URLs, API tokens, access keys, and recipient IDs are locked and encrypted locally inside your configurations!
 
+### 11. Enterprise Infrastructure & IoT Automations
+Operate entire server rooms, control IoT gadgets, drive web scrapers, or query Model servers natively! Run `/infra <subsystem> <command>` to access industry-grade tools:
+*   **🛠️ System Operations**:
+    *   **File System & Terminal**: Built-in as active agents! Runs `/exec <cmd>`, `/read <file>`, and `/write <path> <content>`.
+    *   **🐋 Docker Client Wrapper**: `/infra docker ps`, `/infra docker images`, `/infra docker run <image>`, or `/infra docker stop <container>` to manage live docker processes.
+    *   **🔑 OpenSSH Command Runner**: Run `/infra ssh uname -a` or `/infra ssh docker ps` to execute remote terminal scripts securely via your server configs.
+*   **🌐 Cloud & Browser APIs**:
+    *   **🐙 GitHub Control Center**: `/infra gh issues`, `/infra gh pulls`, or `/infra gh create-issue <title>` to manage issue pipelines and monitor repo builds.
+    *   **🌐 Chrome Automation Driver**: Drives your local Google Chrome to dump live rendered content. `/infra chrome dom <url>`, `/infra chrome screenshot <url>`, or `/infra chrome pdf <url>`.
+    *   **🏡 Home Assistant IoT**: Control your smart office. `/infra hass turn_on light.office` or `/infra hass states` to monitor sensors.
+*   **💾 Persistent Storage & Protocol Standards**:
+    *   **🗄️ Database CLI Runner**: Exec SQL directly to targets. `/infra sql SELECT * FROM users;` (Compatible with SQLite, PostgreSQL, MySQL clients).
+    *   **🧩 Model Context Protocol (MCP)**: Full MCP-client compatibility! `/infra mcp list` (View server tools) or `/infra mcp call <tool> <args>` to talk to standard external toolservers!
+*   **🔑 Quick Setup**: Configure credentials once via `/infra-setup <key> <value>` (e.g., `gh_token`, `ssh_host`, `hass_token`, etc.) to establish persistent bonds!
+
 ---
 
 ## ✨ What's New in VyCode 2.0.0?
