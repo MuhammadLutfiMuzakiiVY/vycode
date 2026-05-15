@@ -23,12 +23,39 @@ pub struct AppConfig {
     pub telegram_token: Option<String>,    // Secure Encrypted Telegram Bot Token
     pub telegram_chat_id: Option<String>,  // Remote Telegram Receiver ID
     pub discord_webhook: Option<String>,   // Discord Webhook URL Integration
+    pub omni: OmniMessagingConfig,         // Omni-Channel Global Network
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeConfig {
     pub accent_color: String,
     pub dark_mode: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct OmniMessagingConfig {
+    // Slack & Teams Webhooks
+    pub slack_webhook: Option<String>,
+    pub teams_webhook: Option<String>,
+    
+    // Matrix credentials
+    pub matrix_homeserver: Option<String>,
+    pub matrix_room_id: Option<String>,
+    pub matrix_access_token: Option<String>,
+    
+    // Signal REST CLI APIs
+    pub signal_api_url: Option<String>,
+    pub signal_recipient: Option<String>,
+    
+    // WhatsApp Gateways
+    pub whatsapp_api_url: Option<String>,
+    pub whatsapp_token: Option<String>,
+    
+    // Email & SMS Gateways
+    pub email_gateway_url: Option<String>,
+    pub email_recipient: Option<String>,
+    pub sms_gateway_url: Option<String>,
+    pub sms_recipient: Option<String>,
 }
 
 impl Default for ThemeConfig {
@@ -56,6 +83,7 @@ impl Default for AppConfig {
             telegram_token: None,
             telegram_chat_id: None,
             discord_webhook: None,
+            omni: OmniMessagingConfig::default(),
         }
     }
 }

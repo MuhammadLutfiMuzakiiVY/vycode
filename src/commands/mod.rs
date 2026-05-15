@@ -31,6 +31,8 @@ pub enum SlashCommand {
     Tg(String),
     DiscordSetup(String),
     Dc(String),
+    OmniSetup(String, String),
+    Broadcast(String, String),
     Unknown(String),
 }
 
@@ -156,6 +158,30 @@ impl SlashCommand {
                     Self::Unknown("dc/discord requires a message: /dc <message_text>".to_string())
                 }
             }
+            "omni-setup" => {
+                if let Some(args) = arg {
+                    let sub_parts: Vec<&str> = args.splitn(2, ' ').collect();
+                    if sub_parts.len() == 2 {
+                        Self::OmniSetup(sub_parts[0].to_string(), sub_parts[1].to_string())
+                    } else {
+                        Self::Unknown("omni-setup requires: /omni-setup <key> <value>".to_string())
+                    }
+                } else {
+                    Self::Unknown("omni-setup requires: /omni-setup <key> <value>".to_string())
+                }
+            }
+            "broadcast" | "bc" => {
+                if let Some(args) = arg {
+                    let sub_parts: Vec<&str> = args.splitn(2, ' ').collect();
+                    if sub_parts.len() == 2 {
+                        Self::Broadcast(sub_parts[0].to_string(), sub_parts[1].to_string())
+                    } else {
+                        Self::Unknown("broadcast requires: /broadcast <channel> <message>".to_string())
+                    }
+                } else {
+                    Self::Unknown("broadcast requires: /broadcast <channel> <message>".to_string())
+                }
+            }
             other => Self::Unknown(other.to_string()),
         })
     }
@@ -172,7 +198,7 @@ impl CommandHandler {
     /// Get help text for all commands
     pub fn help_text() -> String {
         r#"╔══════════════════════════════════════════════════╗
-║              VyCode v2.3.0 Commands              ║
+║              VyCode v2.4.0 Commands              ║
 ╠══════════════════════════════════════════════════╣
 ║                                                  ║
 ║  /help          Show this help message           ║
@@ -189,6 +215,8 @@ impl CommandHandler {
 ║  /tg-setup <t><c>Configure remote Telegram Bot    ║
 ║  /dc <msg>      Push notification to Discord     ║
 ║  /discord-setup Configure Discord Webhook URL    ║
+║  /broadcast <c><m>Omni-Channel Broadcast (7+ App)║
+║  /omni-setup <k><v>Global Omni-Channel Settings  ║
 ║  /memory        View Long-Term Project Memory    ║
 ║  /remember <f>  Store a fact in local memory     ║
 ║  /forget <id>   Wipe a fact by ID from memory    ║

@@ -104,15 +104,22 @@ Read official online API manuals directly into active system context to keep the
 *   **Smart Extraction**: Natively strips scripts, styles, and assets to extract clean text context.
 *   **Auto-Summary Pipeline**: Immediately triggers an autonomous chat loop where the AI digests the newly imported docs and prints a concise, technical 3-to-5 bullet API summary to the screen instantly!
 
-### 10. Multi-Channel Remote Agent Hub (Telegram & Discord)
-Operate VyCode remotely and receive live push notifications! VyCode now features dual direct connection pipelines, allowing users to broadcast AI-generated reports, build states, or logs to external channels!
-*   **📲 Telegram Integration**:
-    *   Run `/tg-setup <token> <chat_id>` to securely establish communication.
-    *   `/tg Hello from my Local Agent Console!`
-*   **🎮 Discord Integration**:
-    *   Run `/discord-setup <webhook_url>` to securely map a specific server text channel.
-    *   `/dc Hey team, Autonomous Repair loops are green! ✅`
-*   **Secure Storage**: All API tokens, Chat IDs, and Webhook addresses are stored locally inside safe encrypted configurations.
+### 10. Global Omni-Channel Messaging Engine (9 Platforms)
+Operate VyCode remotely and receive live push notifications on your favorite applications! VyCode now integrates a unified asynchronus **Omni-Channel Dispatcher** supporting **nine** major messaging channels!
+
+*   **📲 Direct Standard Integrations**:
+    *   **Telegram**: `/tg-setup <tok> <cid>` &rarr; `/tg <msg>`
+    *   **Discord**: `/discord-setup <webhook>` &rarr; `/dc <msg>`
+*   **🌐 Unified Omni-Channel Platforms (7 More!)**:
+    Use the global setup command `/omni-setup <key> <val>` and broadcast using `/broadcast <channel> <msg>` to any of these:
+    *   **🟢 Slack Webhooks**: Key `slack` &rarr; `/broadcast slack <msg>`
+    *   **🚀 Microsoft Teams Webhooks**: Key `teams` &rarr; `/broadcast teams <msg>`
+    *   **🛸 Matrix (Element)**: Keys `matrix_hs`, `matrix_room`, `matrix_token`
+    *   **🔒 Signal REST Gateways**: Keys `signal_url`, `signal_rec`
+    *   **💬 WhatsApp APIs**: Keys `whatsapp_url`, `whatsapp_token`
+    *   **📧 Email SMTP/API Gateway**: Keys `email_url`, `email_rec`
+    *   **📟 SMS Gateway (Twilio etc.)**: Keys `sms_url`, `sms_rec`
+*   **🔒 Encrypted Local Configurations**: All URLs, API tokens, access keys, and recipient IDs are locked and encrypted locally inside your configurations!
 
 ---
 

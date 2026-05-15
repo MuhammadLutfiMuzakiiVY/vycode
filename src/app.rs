@@ -773,6 +773,109 @@ impl App {
                     self.add_system_message("⚠️ **Discord Webhook is not registered.**\nMount yours via: `/discord-setup <webhook_url>` to enable broadcasts!");
                 }
             }
+            SlashCommand::OmniSetup(key, value) => {
+                let key_normalized = key.to_lowercase();
+                let mut updated = true;
+                match key_normalized.as_str() {
+                    "slack" => self.config.omni.slack_webhook = Some(value),
+                    "teams" => self.config.omni.teams_webhook = Some(value),
+                    "matrix_hs" => self.config.omni.matrix_homeserver = Some(value),
+                    "matrix_room" => self.config.omni.matrix_room_id = Some(value),
+                    "matrix_token" => self.config.omni.matrix_access_token = Some(value),
+                    "signal_url" => self.config.omni.signal_api_url = Some(value),
+                    "signal_rec" => self.config.omni.signal_recipient = Some(value),
+                    "whatsapp_url" => self.config.omni.whatsapp_api_url = Some(value),
+                    "whatsapp_token" => self.config.omni.whatsapp_token = Some(value),
+                    "email_url" => self.config.omni.email_gateway_url = Some(value),
+                    "email_rec" => self.config.omni.email_recipient = Some(value),
+                    "sms_url" => self.config.omni.sms_gateway_url = Some(value),
+                    "sms_rec" => self.config.omni.sms_recipient = Some(value),
+                    _ => {
+                        updated = false;
+                        self.add_system_message(&format!("❌ Unknown configuration key: `{key}`. Use standard keys (e.g., slack, teams, matrix_hs, etc.)."));
+                    }
+                }
+
+                if updated {
+                    match self.config.save() {
+                        Ok(_) => {
+                            self.add_system_message(&format!("✅ **Omni-Channel Securely Bound!**\nSuccessfully updated configuration key `{key}` in local storage!"));
+                        }
+                        Err(e) => {
+                            self.add_system_message(&format!("❌ Failed to persist config updates: {e}"));
+                        }
+                    }
+                }
+            }
+            SlashCommand::Broadcast(channel, message) => {
+                let chan_normalized = channel.to_lowercase();
+                self.status_message = format!("Broadcasting event to {}...", chan_normalized);
+                
+                use crate::tools::ToolRouter;
+                let result = match chan_normalized.as_str() {
+                    "slack" => {
+                        if let Some(url) = &self.config.omni.slack_webhook {
+                            ToolRouter::route_command("slack", &[url, &message]).await
+                        } else {
+                            Err(anyhow::anyhow!("Slack configuration missing. Configure via `/omni-setup slack <webhook>`"))
+                        }
+                    }
+                    "teams" => {
+                        if let Some(url) = &self.config.omni.teams_webhook {
+                            ToolRouter::route_command("teams", &[url, &message]).await
+                        } else {
+                            Err(anyhow::anyhow!("Teams configuration missing. Configure via `/omni-setup teams <webhook>`"))
+                        }
+                    }
+                    "matrix" => {
+                        if let (Some(hs), Some(room), Some(tok)) = (&self.config.omni.matrix_homeserver, &self.config.omni.matrix_room_id, &self.config.omni.matrix_access_token) {
+                            ToolRouter::route_command("matrix", &[hs, room, tok, &message]).await
+                        } else {
+                            Err(anyhow::anyhow!("Matrix credentials missing. (Need matrix_hs, matrix_room, matrix_token)"))
+                        }
+                    }
+                    "signal" => {
+                        if let (Some(url), Some(rec)) = (&self.config.omni.signal_api_url, &self.config.omni.signal_recipient) {
+                            ToolRouter::route_command("signal", &[url, rec, &message]).await
+                        } else {
+                            Err(anyhow::anyhow!("Signal credentials missing. (Need signal_url, signal_rec)"))
+                        }
+                    }
+                    "whatsapp" => {
+                        if let (Some(url), Some(tok)) = (&self.config.omni.whatsapp_api_url, &self.config.omni.whatsapp_token) {
+                            ToolRouter::route_command("whatsapp", &[url, tok, &message]).await
+                        } else {
+                            Err(anyhow::anyhow!("WhatsApp credentials missing. (Need whatsapp_url, whatsapp_token)"))
+                        }
+                    }
+                    "email" => {
+                        if let (Some(url), Some(rec)) = (&self.config.omni.email_gateway_url, &self.config.omni.email_recipient) {
+                            ToolRouter::route_command("email", &[url, rec, &message]).await
+                        } else {
+                            Err(anyhow::anyhow!("Email credentials missing. (Need email_url, email_rec)"))
+                        }
+                    }
+                    "sms" => {
+                        if let (Some(url), Some(rec)) = (&self.config.omni.sms_gateway_url, &self.config.omni.sms_recipient) {
+                            ToolRouter::route_command("sms", &[url, rec, &message]).await
+                        } else {
+                            Err(anyhow::anyhow!("SMS credentials missing. (Need sms_url, sms_rec)"))
+                        }
+                    }
+                    _ => Err(anyhow::anyhow!("Target channel `{}` is not registered in Omni global dispatcher.", channel)),
+                };
+
+                match result {
+                    Ok(status) => {
+                        self.add_system_message(&status);
+                        self.status_message = "Omni-Broadcast Success".to_string();
+                    }
+                    Err(e) => {
+                        self.add_system_message(&format!("❌ Omni-Channel dispatch failed: {e}"));
+                        self.status_message = "Omni-Broadcast Error".to_string();
+                    }
+                }
+            }
             SlashCommand::Fix(file) => {
                 let prompt = if let Some(f) = &file {
                     match cmd_handler::read_file(f) {
