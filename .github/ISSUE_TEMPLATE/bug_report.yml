@@ -1,0 +1,49 @@
+name: "🐛 Bug Report"
+description: File a bug report to help us improve.
+title: "[BUG]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe what happened...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Run command '...'
+        2. Call function '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Terminal Output
+      description: Please copy and paste any relevant logs, stack traces, or console output.
+      render: shell
+  - type: input
+    id: environment
+    attributes:
+      label: Environment Info
+      description: OS version, runtime / compiler version (e.g. Node 20.x, Rust 1.80, Python 3.11).
+      placeholder: "OS: Ubuntu 24.04 / Windows 11, Rust: 1.82.0"
+    validations:
+      required: false
